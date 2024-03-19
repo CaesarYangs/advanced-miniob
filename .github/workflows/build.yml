@@ -25,13 +25,17 @@ jobs:
       shell: bash
       run: sudo bash build.sh init
 
-    - name: BuildRelease
-      shell: bash
-      run: bash build.sh release --make -j4
+    # - name: BuildRelease
+    #   shell: bash
+    #   run: bash build.sh release --make -j4
 
-    - name: BuildDebug
+    # - name: BuildDebug
+    #   shell: bash
+    #   run: bash build.sh debug -DENABLE_COVERAGE=ON --make -j4
+
+    - name: Build
       shell: bash
-      run: bash build.sh debug -DENABLE_COVERAGE=ON --make -j4
+      run: bash build.sh
 
     - name: Test
       shell: bash
