@@ -12,6 +12,9 @@ See the Mulan PSL v2 for more details. */
 // Created by Meiyi & Longda on 2021/4/13.
 //
 
+// USELESSS 
+// LEGACY CODE PART
+
 #include "storage/default/default_handler.h"
 
 #include <string>

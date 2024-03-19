@@ -122,6 +122,42 @@ RC Table::create(int32_t table_id, const char *path, const char *name, const cha
   return rc;
 }
 
+/**
+ * Drop table base operate func 
+ * 
+ * @param  {char*} path     : 
+ * @param  {char*} name     : 
+ * @param  {char*} base_dir : 
+ * @return {RC}             : 
+ */
+RC Table::drop(const char *path, const char *name, const char *base_dir){
+  if (common::is_blank(name) || name == nullptr) {
+    LOG_WARN("Name cannot be empty");
+    return RC::INVALID_ARGUMENT;
+  }
+  LOG_INFO("Begin to drop table %s:%s", base_dir, name);
+
+  RC rc = RC::SUCCESS;
+  int fd = ::unlink(path);
+  if (-1 == fd) {
+    return RC::IOERR_OPEN;
+  }
+
+  std::string data_file = std::string(base_dir) + "/" + name + TABLE_DATA_SUFFIX;
+  // TODO-1: drop table from buffer pool
+  rc = data_buffer_pool_->close_file();
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("Failed to drop disk buffer pool of data file. file name=%s", data_file.c_str());
+    return rc;
+  }
+  rc = data_buffer_pool_->drop_file(data_file.c_str());
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("Failed to drop disk buffer pool of data file. file name=%s", data_file.c_str());
+    return rc;
+  }
+  return rc; // success
+}
+
 RC Table::open(const char *meta_file, const char *base_dir)
 {
   // 加载元数据文件

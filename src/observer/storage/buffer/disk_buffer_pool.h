@@ -198,6 +198,12 @@ public:
   RC close_file();
 
   /**
+  * 删除一个名称为指定文件名的分页文件，必须确保该文件的所有页已经被unpin(close)了
+  * TODO-1:如何保证该文件的所有页被unpin??
+  */
+  RC drop_file(const char *file_name);
+
+  /**
    * 根据文件ID和页号获取指定页面到缓冲区，返回页面句柄指针。
    */
   RC get_this_page(PageNum page_num, Frame **frame);

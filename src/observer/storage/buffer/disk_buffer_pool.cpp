@@ -667,6 +667,22 @@ RC BufferPoolManager::create_file(const char *file_name)
   return RC::SUCCESS;
 }
 
+/**
+ * drop a file 
+ * 
+ * @param  {char*} file_name : 
+ * @return {RC}              : 
+ */
+RC DiskBufferPool::drop_file(const char *file_name) {
+
+  int fd = ::unlink(file_name);
+  if (-1 == fd) {
+    return RC::IOERR_CLOSE;
+  }
+  LOG_INFO("Successfully drop %s.", file_name);
+  return RC::SUCCESS;
+}
+
 RC BufferPoolManager::open_file(const char *_file_name, DiskBufferPool *&_bp)
 {
   std::string file_name(_file_name);

@@ -170,19 +170,19 @@ int main(int argc, char **argv)
 {
   int rc = STATUS_SUCCESS;
 
-  set_signal_handler(quit_signal_handle);
+  set_signal_handler(quit_signal_handle);  // 手动定义软中断，截获OS级syscall
 
   parse_parameter(argc, argv);
 
-  rc = init(the_process_param());
+  rc = init(the_process_param());  // 初始化全局状态码
   if (rc != STATUS_SUCCESS) {
     std::cerr << "Shutdown due to failed to init!" << endl;
     cleanup();
     return rc;
   }
 
-  g_server = init_server();
-  g_server->serve();
+  g_server = init_server();  // 初始化 db server
+  g_server->serve();         // 启动 db server
 
   LOG_INFO("Server stopped");
 

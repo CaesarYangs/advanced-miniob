@@ -49,6 +49,14 @@ public:
    */
   RC create(int32_t table_id, const char *path, const char *name, const char *base_dir, int attribute_count,
       const AttrInfoSqlNode attributes[]);
+  /**
+   * drop table
+   * @param  {char*} path     : 
+   * @param  {char*} name     : 
+   * @param  {char*} base_dir : 
+   * @return {RC}             : 
+   */
+  RC drop(const char *path,const char *name,const char *base_dir);
 
   /**
    * 打开一个表

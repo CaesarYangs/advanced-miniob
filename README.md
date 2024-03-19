@@ -17,7 +17,7 @@
 
 - [ ] Basic 10 (Before 4.6)
   - [ ] date 
-  - [ ] drop-table
+  - [x] drop-table
   - [ ] update
   - [ ] 文档
 - [ ] Storage&Index 20 (Before 5.5)
