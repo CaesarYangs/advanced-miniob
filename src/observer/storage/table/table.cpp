@@ -123,7 +123,7 @@ RC Table::create(int32_t table_id, const char *path, const char *name, const cha
 }
 
 /**
- * Drop table base operate func 
+ * Drop table 删除文件及其索引
  * 
  * @param  {char*} path     : 
  * @param  {char*} name     : 
@@ -131,30 +131,50 @@ RC Table::create(int32_t table_id, const char *path, const char *name, const cha
  * @return {RC}             : 
  */
 RC Table::drop(const char *path, const char *name, const char *base_dir){
+  RC rc = RC::SUCCESS;  // 声明返回值
+
+  // 检查输入名称是否为空
   if (common::is_blank(name) || name == nullptr) {
     LOG_WARN("Name cannot be empty");
     return RC::INVALID_ARGUMENT;
   }
   LOG_INFO("Begin to drop table %s:%s", base_dir, name);
 
-  RC rc = RC::SUCCESS;
-  int fd = ::unlink(path);
-  if (-1 == fd) {
-    return RC::IOERR_OPEN;
-  }
-
+  // 找到数据文件并在buffer pool中关闭
   std::string data_file = std::string(base_dir) + "/" + name + TABLE_DATA_SUFFIX;
-  // TODO-1: drop table from buffer pool
   rc = data_buffer_pool_->close_file();
   if (rc != RC::SUCCESS) {
     LOG_ERROR("Failed to drop disk buffer pool of data file. file name=%s", data_file.c_str());
     return rc;
   }
+  // 将数据文件从buffer pool中删除
   rc = data_buffer_pool_->drop_file(data_file.c_str());
   if (rc != RC::SUCCESS) {
     LOG_ERROR("Failed to drop disk buffer pool of data file. file name=%s", data_file.c_str());
     return rc;
   }
+
+  // 删除索引文件
+  for (std::vector<Index*>::size_type i = 0; i < indexes_.size(); i++) {
+    std::string index_file = table_index_file(base_dir_.c_str(), name, indexes_[i]->index_meta().name());
+    rc = reinterpret_cast<BplusTreeIndex *>(indexes_[i])->close();
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("Failed to close disk buffer pool of index file. file name=%s", index_file.c_str());
+      return rc;
+    }
+    rc = data_buffer_pool_->drop_file(index_file.c_str());
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("Failed to drop disk buffer pool of index file. file name=%s", index_file.c_str());
+      return rc;
+    } 
+  }
+
+  // 真正删除该数据表
+  int fd = ::unlink(path);
+  if (-1 == fd) {
+    return RC::IOERR_CLOSE;
+  }
+
   return rc; // success
 }
 

@@ -139,6 +139,7 @@ RC Db::drop_table(const char *table_name)
   // drop table meta_file & data_file
   std::string table_file = table_meta_file(path_.c_str(), table_name);  // get meta data
   Table      *table      = opened_tables_[table_name];                  // get table_data
+  
   rc = table->drop(table_file.c_str(), table_name, path_.c_str());      // main operation section for dropping table
   if (rc != RC::SUCCESS) {
     delete table;  // recycle pointer addr

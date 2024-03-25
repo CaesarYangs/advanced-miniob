@@ -18,6 +18,7 @@ RC DropTableExecutor::execute(SQLStageEvent *sql_event)
   DropTableStmt *drop_table_stmt = static_cast<DropTableStmt *>(stmt);
 
   const char *table_name = drop_table_stmt->table_name().c_str();
+  // Trx *trx = session->current_trx();
   RC rc = session->get_current_db()->drop_table(table_name);
 
   return rc;
