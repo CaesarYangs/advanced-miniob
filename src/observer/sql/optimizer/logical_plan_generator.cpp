@@ -20,6 +20,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/delete_logical_operator.h"
 #include "sql/operator/explain_logical_operator.h"
 #include "sql/operator/insert_logical_operator.h"
+#include "sql/operator/update_logical_operator.h"
 #include "sql/operator/join_logical_operator.h"
 #include "sql/operator/logical_operator.h"
 #include "sql/operator/predicate_logical_operator.h"
@@ -31,6 +32,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/stmt/explain_stmt.h"
 #include "sql/stmt/filter_stmt.h"
 #include "sql/stmt/insert_stmt.h"
+#include "sql/stmt/update_stmt.h"
 #include "sql/stmt/select_stmt.h"
 #include "sql/stmt/stmt.h"
 
@@ -43,31 +45,40 @@ RC LogicalPlanGenerator::create(Stmt *stmt, unique_ptr<LogicalOperator> &logical
     case StmtType::CALC: {
       CalcStmt *calc_stmt = static_cast<CalcStmt *>(stmt);
 
-      rc                  = create_plan(calc_stmt, logical_operator);
+      rc = create_plan(calc_stmt, logical_operator);
     } break;
 
     case StmtType::SELECT: {
       SelectStmt *select_stmt = static_cast<SelectStmt *>(stmt);
 
-      rc                      = create_plan(select_stmt, logical_operator);
+      rc = create_plan(select_stmt, logical_operator);
     } break;
 
     case StmtType::INSERT: {
       InsertStmt *insert_stmt = static_cast<InsertStmt *>(stmt);
 
-      rc                      = create_plan(insert_stmt, logical_operator);
+      rc = create_plan(insert_stmt, logical_operator);
+    } break;
+
+    // Add update function
+    // TODO#1
+    // 具体实现策略：1.读取输入的新值，且找到要改的对应的行数据，2.数据指针指向要修改字段地址，用新数据覆盖旧数据，（3.写入）
+    case StmtType::UPDATE: {
+      UpdateStmt *update_stmt = static_cast<UpdateStmt *>(stmt);
+
+      rc = create_plan(update_stmt, logical_operator);
     } break;
 
     case StmtType::DELETE: {
       DeleteStmt *delete_stmt = static_cast<DeleteStmt *>(stmt);
 
-      rc                      = create_plan(delete_stmt, logical_operator);
+      rc = create_plan(delete_stmt, logical_operator);
     } break;
 
     case StmtType::EXPLAIN: {
       ExplainStmt *explain_stmt = static_cast<ExplainStmt *>(stmt);
 
-      rc                        = create_plan(explain_stmt, logical_operator);
+      rc = create_plan(explain_stmt, logical_operator);
     } break;
     default: {
       rc = RC::UNIMPLENMENT;
@@ -109,7 +120,7 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
 
   unique_ptr<LogicalOperator> predicate_oper;
 
-  RC                          rc = create_plan(select_stmt->filter_stmt(), predicate_oper);
+  RC rc = create_plan(select_stmt->filter_stmt(), predicate_oper);
   if (rc != RC::SUCCESS) {
     LOG_WARN("failed to create predicate logical plan. rc=%s", strrc(rc));
     return rc;
@@ -171,6 +182,51 @@ RC LogicalPlanGenerator::create_plan(InsertStmt *insert_stmt, unique_ptr<Logical
   return RC::SUCCESS;
 }
 
+// TODO update logical operator
+// Update plan real opearor(handler)
+// output: logical_operator
+RC LogicalPlanGenerator::create_plan(UpdateStmt *update_stmt, unique_ptr<LogicalOperator> &logical_operator)
+{
+  Table      *table        = update_stmt->table();
+  const Value      *value        = update_stmt->values();
+  FilterStmt *filter_stmt  = update_stmt->filter_stmt();
+  Field      *update_field = update_stmt->query_field();
+
+  // 获取要操作表的元信息（表项等）
+  std::vector<Field> fields;
+  for (int i = table->table_meta().sys_field_num(); i < table->table_meta().field_num(); i++) {
+    const FieldMeta *field_meta = table->table_meta().field(i);
+    fields.push_back(Field(table, field_meta));
+  }
+
+  // 指针得到从表中获取数据的算子
+  unique_ptr<LogicalOperator> table_get_oper(new TableGetLogicalOperator(table, fields, false /*readonly*/));
+
+  // 断言算子
+  unique_ptr<LogicalOperator> predicate_oper;
+  RC                          rc = create_plan(filter_stmt, predicate_oper);
+  if (rc != RC::SUCCESS) {
+    return rc;
+  }
+
+  unique_ptr<LogicalOperator> update_oper(new UpdateLogicalOperator(table, value, update_field)); // 注意传递过程中的const问题，主要传递filter clause前的部分，后半部分由rewriter变为record即可
+
+  if (predicate_oper) {
+    predicate_oper->add_child(std::move(table_get_oper));
+    update_oper->add_child(std::move(predicate_oper));
+  } else {
+    update_oper->add_child(std::move(table_get_oper));
+  }
+
+  // instance the final update operator
+  logical_operator = std::move(update_oper);
+
+  // debug
+  LOG_DEBUG("[[[[update LogicalPlanGenerator plan]]]]: table:%s, field:%s, new_value:%d, filter_field:%s, filter_value:%d",table->name(),update_stmt->query_field()->field_name(),value->get_int(),filter_stmt->filter_units()[0]->left().field.field_name(),filter_stmt->filter_units()[0]->right().value.get_int());
+
+  return RC::SUCCESS;
+}
+
 RC LogicalPlanGenerator::create_plan(DeleteStmt *delete_stmt, unique_ptr<LogicalOperator> &logical_operator)
 {
   Table             *table       = delete_stmt->table();
@@ -205,9 +261,9 @@ RC LogicalPlanGenerator::create_plan(ExplainStmt *explain_stmt, unique_ptr<Logic
 {
   unique_ptr<LogicalOperator> child_oper;
 
-  Stmt                       *child_stmt = explain_stmt->child();
+  Stmt *child_stmt = explain_stmt->child();
 
-  RC                          rc = create(child_stmt, child_oper);
+  RC rc = create(child_stmt, child_oper);
   if (rc != RC::SUCCESS) {
     LOG_WARN("failed to create explain's child operator. rc=%s", strrc(rc));
     return rc;

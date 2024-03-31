@@ -19,6 +19,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/optimizer/predicate_pushdown_rewriter.h"
 #include "sql/optimizer/predicate_rewrite.h"
 
+// 针对一条logical operator，进行三次重写操作
 Rewriter::Rewriter()
 {
   rewrite_rules_.emplace_back(new ExpressionRewriter);

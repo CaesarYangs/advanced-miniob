@@ -190,6 +190,14 @@ RC MvccTrx::delete_record(Table *table, Record &record)
   return RC::SUCCESS;
 }
 
+RC MvccTrx::update_record(Table *table, Record &record){
+  return RC::SUCCESS;
+}
+
+RC MvccTrx::update_record(Table *table, Field *field, const Value *value, Record &record){
+  return RC::SUCCESS;
+}
+
 RC MvccTrx::visit_record(Table *table, Record &record, bool readonly)
 {
   Field begin_field;

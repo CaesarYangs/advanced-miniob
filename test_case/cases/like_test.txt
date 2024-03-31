@@ -1,0 +1,11 @@
+SELECT * FROM Book WHERE title LIKE 'The Great Gilly %';
+id | title | authors | publisher_id | copies
+200004 | The Great Gilly Hopkins | Gina Bari Kolata | 101339 | 39
+
+SELECT * FROM Book WHERE title LIKE 'Meine Juden--eure Jude_';
+id | title | authors | publisher_id | copies
+200005 | Meine Juden--eure Juden | E. J. W. Barber | 103089 | 206
+
+SELECT * FROM Book WHERE title LIKE '%rica Out of the Ashe_';
+id | title | authors | publisher_id | copies
+202682 | America Out of the Ashes | China Mieville | 103171 | 6192

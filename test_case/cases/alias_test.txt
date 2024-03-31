@@ -1,0 +1,13 @@
+SELECT  id AS id_alias FROM Customer WHERE id < 300006 ;
+id_alias
+300001
+300002
+300003
+300004
+300005
+
+select t.name from Customer as t WHERE t.id < 300004;
+name
+CHAD CABELLO
+FAUSTO VANNORMAN
+JO CANNADY

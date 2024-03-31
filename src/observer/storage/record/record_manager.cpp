@@ -261,6 +261,36 @@ RC RecordPageHandler::delete_record(const RID *rid)
   }
 }
 
+RC RecordPageHandler::update_record(const RID *rid, Field *field, const Value *value, Record *rec)
+{
+  ASSERT(readonly_ == false, "cannot update record from page while the page is readonly");
+
+  if (rid->slot_num >= page_header_->record_capacity) {
+    LOG_ERROR("Invalid slot_num %d, exceed page's record capacity, page_num %d.", rid->slot_num, frame_->page_num());
+    return RC::INVALID_ARGUMENT;
+  }
+
+  Bitmap bitmap(bitmap_, page_header_->record_capacity);
+  if (!bitmap.get_bit(rid->slot_num)) {
+    LOG_ERROR("Invalid slot_num:%d, slot is empty, page_num %d.", rid->slot_num, frame_->page_num());
+    return RC::RECORD_NOT_EXIST;
+  }
+
+  // 在memory中对应的Field中写入新Value
+  // 更新指定字段: 当前方案为 1.取出已有record，2.在mem
+  // pile上写新数据到record中，3.flush整个record到原始指针处（不写单个field了）
+
+  // 更新value
+  memcpy(rec->data() + field->meta()->offset(), value->data(), field->meta()->len());
+
+  // 更新memory
+  char *record_data = get_record_data(rid->slot_num);  // 奥卡姆剃刀
+  memcpy(record_data, rec->data(), page_header_->record_real_size);
+  frame_->mark_dirty();
+
+  return RC::SUCCESS;
+}
+
 RC RecordPageHandler::get_record(const RID *rid, Record *rec)
 {
   if (rid->slot_num >= page_header_->record_capacity) {
@@ -425,6 +455,22 @@ RC RecordFileHandler::recover_insert_record(const char *data, int record_size, c
   }
 
   return record_page_handler.recover_insert_record(data, rid);
+}
+
+RC RecordFileHandler::update_record(const RID *rid, Record &record, Field *field, const Value *value)
+{
+  RC rc = RC::SUCCESS;
+
+  RecordPageHandler page_handler;
+  if ((rc = page_handler.init(*disk_buffer_pool_, rid->page_num, false /*readonly*/)) != RC::SUCCESS) {
+    LOG_ERROR("Failed to init record page handler.page number=%d. rc=%s", rid->page_num, strrc(rc));
+    return rc;
+  }
+
+  // main update memory operation func
+  rc = page_handler.update_record(rid, field, value, &record);
+
+  return rc;
 }
 
 RC RecordFileHandler::delete_record(const RID *rid)

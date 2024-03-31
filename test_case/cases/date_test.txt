@@ -1,0 +1,33 @@
+CREATE TABLE date_t(id int, d date);
+SUCCESS
+INSERT INTO date_t VALUES(1,"2000-08-22");
+SUCCESS
+INSERT INTO date_t VALUES(2,"1999-01-01");
+SUCCESS
+INSERT INTO date_t VALUES(3,"1998-02-06");
+SUCCESS
+
+SELECT * FROM date_t;
+id | d
+1 | 2000-08-22
+2 | 1999-01-01
+3 | 1998-02-06
+
+SELECT * FROM date_t WHERE d ="1999-01-01";
+id | d
+2 | 1999-01-01
+
+DELETE FROM date_t WHERE d ="1999-01-01";
+SUCCESS
+
+SELECT * FROM date_t;
+id | d
+1 | 2000-08-22
+3 | 1998-02-06
+
+INSERT INTO date_t VALUES(4,"1999-13-25");
+FAILURE
+
+INSERT INTO date_t VALUES(4,"1999-12-32");
+FAILURE
+后面两个测试样例插入失败，因为日期不符合规范。

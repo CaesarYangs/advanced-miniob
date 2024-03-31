@@ -1,0 +1,24 @@
+CREATE INDEX multi_idx ON Customer(id,rank);
+SUCCESS
+测试结果：miniob/build/miniob/db/sys/Customer.table 中要增加index部分的元数据，同时也要生成一个Customer-multi_idx.index文件,具体如下：
+"indexes" :
+        [
+                {
+                        "field_name" : "id,rank",
+                        "name" : "multi_idx"
+                }
+        ]
+
+CREATE index multi_idx2 ON Customer(id,name);
+测试结果：同上，要有对Customer.table文件的修改，并生成Customer-multi_idx2.index文件：
+"indexes" :
+        [
+                {
+                        "field_name" : "id,rank",
+                        "name" : "multi_idx"
+                },
+                {
+                        "field_name" : "id,name",
+                        "name" : "multi_idx2"
+                }
+        ]

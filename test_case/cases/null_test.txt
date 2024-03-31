@@ -1,0 +1,42 @@
+CREATE TABLE null_table(id int, num int null, price float not null);
+SUCCESS
+
+INSERT INTO null_table VALUES (1, 18, 10.0);
+SUCCESS
+INSERT INTO null_table VALUES (2, null, 20.0);
+SUCCESS
+INSERT INTO null_table VALUES (3, 12, 30.0);
+SUCCESS
+INSERT INTO null_table VALUES (4, null, 30.0);
+SUCCESS
+INSERT INTO null_table VALUES (5, 15, null);
+FAILURE
+
+SELECT * FROM null_table;
+id | num | price
+1 | 18 | 10
+2 | null | 20
+3 | 12 | 30
+4 | null | 30
+
+SELECT * FROM null_table WHERE 1 IS NOT NULL;
+id | num | price
+1 | 18 | 10
+2 | null | 20
+3 | 12 | 30
+4 | null | 30
+
+SELECT * FROM null_table WHERE NULL=1;
+id | num | price
+
+SELECT * FROM null_table WHERE NULL IS NULL;
+id | num | price
+1 | 18 | 10
+2 | null | 20
+3 | 12 | 30
+4 | null | 30
+
+SELECT * FROM null_table WHERE num IS NOT NULL;
+id | num | price
+1 | 18 | 10
+3 | 12 | 30

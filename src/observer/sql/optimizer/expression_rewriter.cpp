@@ -17,6 +17,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/optimizer/comparison_simplification_rule.h"
 #include "sql/optimizer/conjunction_simplification_rule.h"
 
+// 重写两部分Expression：都是在where之后的filter部分
 ExpressionRewriter::ExpressionRewriter()
 {
   expr_rewrite_rules_.emplace_back(new ComparisonSimplificationRule);
@@ -59,6 +60,7 @@ RC ExpressionRewriter::rewrite(std::unique_ptr<LogicalOperator> &oper, bool &cha
   return rc;
 }
 
+// 重写logical_operator中的Expression核心代码
 RC ExpressionRewriter::rewrite_expression(std::unique_ptr<Expression> &expr, bool &change_made)
 {
   RC rc = RC::SUCCESS;
@@ -98,6 +100,9 @@ RC ExpressionRewriter::rewrite_expression(std::unique_ptr<Expression> &expr, boo
       std::unique_ptr<Expression> &left_expr       = comparison_expr->left();
       std::unique_ptr<Expression> &right_expr      = comparison_expr->right();
 
+      Value rvalue;
+      right_expr->try_get_value(rvalue);
+      LOG_DEBUG("[[[[COMPARISON GET DATA]]]] field:%s, rvalue:%d",left_expr->name(),rvalue.get_int());
       bool left_change_made = false;
 
       rc                    = rewrite_expression(left_expr, left_change_made);

@@ -1,0 +1,15 @@
+CREATE HASHINDEX id_idx ON Book(id);
+SUCCESS
+测试结果：miniob/build/miniob/db/sys/Book.table中要增加index部分的元数据，同时也要生成一个Book-id_idx.index文件,具体如下：
+"indexes" : 
+	[
+		{
+			"field_name" : "id",
+			"ifhashindex" : true,
+			"name" : "id_idx",
+			"unique_index" : false
+		}
+	]
+
+DROP HASHINDEX id_idx ON Book;
+SUCCESS

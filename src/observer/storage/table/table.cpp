@@ -28,6 +28,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/table/table.h"
 #include "storage/table/table_meta.h"
 #include "storage/trx/trx.h"
+#include "storage/field/field.h"
 
 Table::~Table()
 {
@@ -124,13 +125,14 @@ RC Table::create(int32_t table_id, const char *path, const char *name, const cha
 
 /**
  * Drop table 删除文件及其索引
- * 
- * @param  {char*} path     : 
- * @param  {char*} name     : 
- * @param  {char*} base_dir : 
- * @return {RC}             : 
+ *
+ * @param  {char*} path     :
+ * @param  {char*} name     :
+ * @param  {char*} base_dir :
+ * @return {RC}             :
  */
-RC Table::drop(const char *path, const char *name, const char *base_dir){
+RC Table::drop(const char *path, const char *name, const char *base_dir)
+{
   RC rc = RC::SUCCESS;  // 声明返回值
 
   // 检查输入名称是否为空
@@ -142,7 +144,7 @@ RC Table::drop(const char *path, const char *name, const char *base_dir){
 
   // 找到数据文件并在buffer pool中关闭
   std::string data_file = std::string(base_dir) + "/" + name + TABLE_DATA_SUFFIX;
-  rc = data_buffer_pool_->close_file();
+  rc                    = data_buffer_pool_->close_file();
   if (rc != RC::SUCCESS) {
     LOG_ERROR("Failed to drop disk buffer pool of data file. file name=%s", data_file.c_str());
     return rc;
@@ -155,9 +157,9 @@ RC Table::drop(const char *path, const char *name, const char *base_dir){
   }
 
   // 删除索引文件
-  for (std::vector<Index*>::size_type i = 0; i < indexes_.size(); i++) {
+  for (std::vector<Index *>::size_type i = 0; i < indexes_.size(); i++) {
     std::string index_file = table_index_file(base_dir_.c_str(), name, indexes_[i]->index_meta().name());
-    rc = reinterpret_cast<BplusTreeIndex *>(indexes_[i])->close();
+    rc                     = reinterpret_cast<BplusTreeIndex *>(indexes_[i])->close();
     if (rc != RC::SUCCESS) {
       LOG_ERROR("Failed to close disk buffer pool of index file. file name=%s", index_file.c_str());
       return rc;
@@ -166,7 +168,7 @@ RC Table::drop(const char *path, const char *name, const char *base_dir){
     if (rc != RC::SUCCESS) {
       LOG_ERROR("Failed to drop disk buffer pool of index file. file name=%s", index_file.c_str());
       return rc;
-    } 
+    }
   }
 
   // 真正删除该数据表
@@ -175,7 +177,7 @@ RC Table::drop(const char *path, const char *name, const char *base_dir){
     return RC::IOERR_CLOSE;
   }
 
-  return rc; // success
+  return rc;  // success
 }
 
 RC Table::open(const char *meta_file, const char *base_dir)
@@ -495,7 +497,42 @@ RC Table::delete_record(const Record &record)
            "failed to delete entry from index. table name=%s, index name=%s, rid=%s, rc=%s",
            name(), index->index_meta().name(), record.rid().to_string().c_str(), strrc(rc));
   }
+  LOG_DEBUG("(((((RC Table::delete_record))))) test:%s",record.rid().to_string().c_str());
   rc = record_handler_->delete_record(&record.rid());
+  return rc;
+}
+
+RC Table::update_record(Record &record)
+{
+  RC rc = RC::SUCCESS;
+  // for (Index *index : indexes_) {
+  //   // TODO#2 update indexes?
+  // }
+  LOG_DEBUG("(((((RC Table::update_record))))) test:%s",record.rid().to_string().c_str());
+  return rc;
+}
+
+RC Table::update_record(Record &record, Field *field, const Value *value)
+{
+  RC rc = RC::SUCCESS;
+
+  LOG_DEBUG("(((((RC Table::update_record))))) test:%s, data:%s, field:%s, value:%d",record.rid().to_string().c_str(),record.data(),field->field_name(),value->get_int());
+  LOG_DEBUG("(((((RC Table::update_record))))) record_size:%d",table_meta_.record_size());
+
+  // main update section
+  rc = record_handler_->update_record(&record.rid(), record, field, value);
+
+  // 更新索引
+  if (rc == RC::SUCCESS) {
+    rc = delete_entry_of_indexes(record.data(), record.rid(), true);
+    if (rc != RC::SUCCESS) {
+      LOG_PANIC("Failed to delete old index. table name=%s, rc=%d:%s", name(), rc, strrc(rc));
+    }
+    rc = insert_entry_of_indexes(record.data(), record.rid());
+    if (rc != RC::SUCCESS) {
+      LOG_PANIC("Failed to add new index. table name=%s, rc=%d:%s", name(), rc, strrc(rc));
+    }
+  }
   return rc;
 }
 

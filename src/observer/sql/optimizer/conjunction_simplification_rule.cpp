@@ -36,7 +36,6 @@ RC ConjunctionSimplificationRule::rewrite(std::unique_ptr<Expression> &expr, boo
   auto                                      conjunction_expr = static_cast<ConjunctionExpr *>(expr.get());
 
   std::vector<std::unique_ptr<Expression>> &child_exprs      = conjunction_expr->children();
-
   // 先看看有没有能够直接去掉的表达式。比如AND时恒为true的表达式可以删除
   // 或者是否可以直接计算出当前表达式的值。比如AND时，如果有一个表达式为false，那么整个表达式就是false
   for (auto iter = child_exprs.begin(); iter != child_exprs.end();) {
@@ -78,6 +77,9 @@ RC ConjunctionSimplificationRule::rewrite(std::unique_ptr<Expression> &expr, boo
     child_exprs.clear();
     expr = std::move(child_expr);
 
+    Value value;
+    expr->try_get_value(value);
+    LOG_DEBUG("[[[[[[[[[[ConjunctionSimplificationRule REWRITE]]]]]]]]]], name:%s, value:%d", expr->name().c_str(),value.get_int());
     change_made = true;
   }
 

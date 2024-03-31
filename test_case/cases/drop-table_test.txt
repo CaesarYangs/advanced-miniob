@@ -1,0 +1,7 @@
+CREATE INDEX id_idx ON Book(id);
+SUCCESS
+DROP TABLE Book;
+SUCCESS
+SHOW TABLES;
+测试结果：
+执行SHOW TABLES;结果中看不到被删除的表，且miniob/build/miniob/db/sys 内以Book开头的文件全部删除。之后再做其他测试之前，可能需要先创建Book这张表并插入相关数据。
