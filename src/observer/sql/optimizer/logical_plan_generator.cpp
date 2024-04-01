@@ -60,8 +60,7 @@ RC LogicalPlanGenerator::create(Stmt *stmt, unique_ptr<LogicalOperator> &logical
       rc = create_plan(insert_stmt, logical_operator);
     } break;
 
-    // Add update function
-    // TODO#1
+    // update function
     // 具体实现策略：1.读取输入的新值，且找到要改的对应的行数据，2.数据指针指向要修改字段地址，用新数据覆盖旧数据，（3.写入）
     case StmtType::UPDATE: {
       UpdateStmt *update_stmt = static_cast<UpdateStmt *>(stmt);
@@ -182,7 +181,6 @@ RC LogicalPlanGenerator::create_plan(InsertStmt *insert_stmt, unique_ptr<Logical
   return RC::SUCCESS;
 }
 
-// TODO update logical operator
 // Update plan real opearor(handler)
 // output: logical_operator
 RC LogicalPlanGenerator::create_plan(UpdateStmt *update_stmt, unique_ptr<LogicalOperator> &logical_operator)
@@ -221,8 +219,20 @@ RC LogicalPlanGenerator::create_plan(UpdateStmt *update_stmt, unique_ptr<Logical
   // instance the final update operator
   logical_operator = std::move(update_oper);
 
+  // value type check
+  if(update_stmt->query_field()->attr_type() != value->attr_type()){
+    LOG_ERROR("update stmt contains value with incorrect type");
+    return RC::INVALID_ARGUMENT;
+  }
+
+  // right(filter stmt check)
+  if(filter_stmt->filter_units()[0]->left().field.attr_type() != filter_stmt->filter_units()[0]->right().value.attr_type()){
+    LOG_ERROR("update stmt filter contains value with incorrect type");
+    return RC::INVALID_ARGUMENT;
+  }
+
   // debug
-  LOG_DEBUG("[[[[update LogicalPlanGenerator plan]]]]: table:%s, field:%s, new_value:%d, filter_field:%s, filter_value:%d",table->name(),update_stmt->query_field()->field_name(),value->get_int(),filter_stmt->filter_units()[0]->left().field.field_name(),filter_stmt->filter_units()[0]->right().value.get_int());
+  // LOG_DEBUG("[[[[update LogicalPlanGenerator plan]]]]: table:%s, field:%s, new_value:%d, filter_field:%s, filter_value:%d",table->name(),update_stmt->query_field()->field_name(),value->get_int(),filter_stmt->filter_units()[0]->left().field.field_name(),filter_stmt->filter_units()[0]->right().value.get_int());
 
   return RC::SUCCESS;
 }

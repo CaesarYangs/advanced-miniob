@@ -238,7 +238,7 @@ RC PhysicalPlanGenerator::create_plan(UpdateLogicalOperator &update_oper, unique
     }
   }
 
-  LOG_DEBUG("[[[[[[[[[[[[[[TEST update physical PhysicalPlanGenerator]]]]]]]]]]]]]] field_name:%s, new_value:%d",update_oper.field()->field_name(),update_oper.values()->get_int());
+  LOG_DEBUG("[[[[[[[[[[[[[[TEST update physical PhysicalPlanGenerator]]]]]]]]]]]]]] field_name:%s, new_value:%s",update_oper.field()->field_name(),update_oper.values()->get_string());
 
   oper = unique_ptr<PhysicalOperator>(new UpdatePhysicalOperator(table, values, field));
 

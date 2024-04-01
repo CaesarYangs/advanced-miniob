@@ -280,8 +280,22 @@ RC RecordPageHandler::update_record(const RID *rid, Field *field, const Value *v
   // 更新指定字段: 当前方案为 1.取出已有record，2.在mem
   // pile上写新数据到record中，3.flush整个record到原始指针处（不写单个field了）
 
+  LOG_DEBUG("[[[[[[[RC RecordPageHandler::update_record]]]]]]] test:%d, value_len:%d",field->meta()->len(), strlen(value->data()));
+
   // 更新value
-  memcpy(rec->data() + field->meta()->offset(), value->data(), field->meta()->len());
+  // ATTENTION!!!:地址越界问题：字符串情况下，value的长度只会是字符串的长度，因此如果直接memcpy
+  // meta长度的话，直接就越界了 memcpy(rec->data() + field->meta()->offset(), value->data(), field->meta()->len());
+
+  // 获取字段最大长度和输入值的长度
+  size_t max_field_len = field->meta()->len();   // 字段的最大长度
+  size_t input_len     = strlen(value->data());  // 输入值的实际长度
+
+  // 计算要复制的长度，取输入长度和字段最大长度中的较小者
+  size_t copy_len = (input_len < max_field_len) ? input_len : max_field_len - 1;
+  memcpy(rec->data() + field->meta()->offset(),
+      value->data(),
+      copy_len);  // 将数据复制到记录中，确保不会超过字段的最大长度
+  rec->data()[field->meta()->offset() + copy_len] = '\0';  // 在复制后的字符串末尾添加空字符，确保字符串正确终止
 
   // 更新memory
   char *record_data = get_record_data(rid->slot_num);  // 奥卡姆剃刀

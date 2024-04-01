@@ -516,7 +516,7 @@ RC Table::update_record(Record &record, Field *field, const Value *value)
 {
   RC rc = RC::SUCCESS;
 
-  LOG_DEBUG("(((((RC Table::update_record))))) test:%s, data:%s, field:%s, value:%d",record.rid().to_string().c_str(),record.data(),field->field_name(),value->get_int());
+  // LOG_DEBUG("(((((RC Table::update_record))))) test:%s, data:%s, field:%s, value:%d",record.rid().to_string().c_str(),record.data(),field->field_name(),value->get_int());
   LOG_DEBUG("(((((RC Table::update_record))))) record_size:%d",table_meta_.record_size());
 
   // main update section

@@ -17,7 +17,7 @@ RC UpdatePhysicalOperator::open(Trx *trx)
   // test
   if (table_ != nullptr && field_ != nullptr) {
 
-    LOG_DEBUG("[[[[[[[[[[[UpdatePhysicalOperator]]]]]]]]]]] table:%s, field:%s, value:%d",table_->name(),field_->field_name(),values_->get_int());
+    LOG_DEBUG("[[[[[[[[[[[UpdatePhysicalOperator]]]]]]]]]]] table:%s, field:%s, value:%s",table_->name(),field_->field_name(),values_->get_string());
   }
 
   if (children_.empty()) {
@@ -53,7 +53,7 @@ RC UpdatePhysicalOperator::next()
 
     RowTuple *row_tuple = static_cast<RowTuple *>(tuple);
     Record   &record    = row_tuple->record();
-    LOG_DEBUG("[[[[[[[[[[[[[[[UpdatePhysicalOperator]]]]]]]]]]]]]]] record data:%s",record.data());
+    LOG_DEBUG("[[[[[[[[[[[[[[[UpdatePhysicalOperator]]]]]]]]]]]]]]]");
     rc = trx_->update_record(table_, field_, values_, record);  // real update section
     if (rc != RC::SUCCESS) {
       LOG_WARN("failed to delete record: %s", strrc(rc));
