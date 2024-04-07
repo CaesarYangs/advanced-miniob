@@ -207,6 +207,22 @@ RC LogicalPlanGenerator::create_plan(UpdateStmt *update_stmt, unique_ptr<Logical
     return rc;
   }
 
+  // value type check
+  if(update_stmt->query_field()->attr_type() != value->attr_type() && update_stmt->query_field()->attr_type() != 3){
+    LOG_DEBUG("[[[[[[[[[[[date update check]]]]]]]]]]] %d, %d",update_stmt->query_field()->attr_type(),value->attr_type());
+    LOG_ERROR("update stmt contains value with incorrect type");
+    return RC::INVALID_ARGUMENT;
+  }
+
+  // convert type CHAR to DATE
+  if(update_stmt->query_field()->attr_type() ==3){
+    Value *new_value = new Value(value);
+    Date date = value->get_date();
+    new_value->set_date(date);
+    value = new_value;
+    LOG_DEBUG("[[[[[[[log date]]]]]]] %s, %s",new_value->get_date().to_string(new_value->get_date()).c_str(),value->get_date().to_string(value->get_date()).c_str());
+  }
+
   unique_ptr<LogicalOperator> update_oper(new UpdateLogicalOperator(table, value, update_field)); // 注意传递过程中的const问题，主要传递filter clause前的部分，后半部分由rewriter变为record即可
 
   if (predicate_oper) {
@@ -218,12 +234,6 @@ RC LogicalPlanGenerator::create_plan(UpdateStmt *update_stmt, unique_ptr<Logical
 
   // instance the final update operator
   logical_operator = std::move(update_oper);
-
-  // value type check
-  if(update_stmt->query_field()->attr_type() != value->attr_type()){
-    LOG_ERROR("update stmt contains value with incorrect type");
-    return RC::INVALID_ARGUMENT;
-  }
 
   // right(filter stmt check)
   if(filter_stmt->filter_units()[0]->left().field.attr_type() != filter_stmt->filter_units()[0]->right().value.attr_type()){
