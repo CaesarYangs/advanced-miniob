@@ -17,6 +17,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/expr/tuple.h"
 #include "sql/operator/physical_operator.h"
 #include "storage/record/record_manager.h"
+#include "sql/parser/value.h"
 
 /**
  * @brief 索引扫描物理算子
@@ -62,6 +63,8 @@ private:
   Value right_value_;
   bool  left_inclusive_  = false;
   bool  right_inclusive_ = false;
+
+  AttrType field_type_;
 
   std::vector<std::unique_ptr<Expression>> predicates_;
 };
