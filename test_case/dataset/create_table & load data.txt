@@ -1,0 +1,8 @@
+--- 创建测试需要的四张表
+CREATE TABLE Book (id int(10) , title char(100) ,authors char(200),publisher_id int(10) ,copies int(10));
+CREATE TABLE Customer (id int(10) ,name char(25),rank int(10));
+CREATE TABLE Publisher (id int(10) ,name char(100) ,nation char(3));
+CREATE TABLE Orders (customer_id int(10) ,book_id int(10) ,quantity int(10));
+
+--- 将txt中的数据导入进miniob的数据表中
+load data infile '.../Book.txt' into table Book;

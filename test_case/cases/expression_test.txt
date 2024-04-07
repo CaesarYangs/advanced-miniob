@@ -1,0 +1,33 @@
+CREATE TABLE expression_table (customer_id int(10) ,book_id int(10) ,quantity int(10)); 
+SUCCESS
+
+INSERT INTO expression_table  VALUES  (304403,209743,2);
+SUCCESS
+INSERT INTO expression_table  VALUES   (305481,202165,5);
+SUCCESS
+INSERT INTO expression_table  VALUES   (302765,214166,9);
+SUCCESS
+INSERT INTO expression_table  VALUES   (306895,204501,6);
+SUCCESS
+INSERT INTO expression_table  VALUES   (303924,211991,4);
+SUCCESS
+
+SELECT * FROM expression_table WHERE 1 = 5/4;
+customer_id | book_id | quantity
+
+SELECT * FROM expression_table WHERE quantity-5 > 0;
+customer_id | book_id | quantity
+302765 | 214166 | 9
+306895 | 204501 | 6
+
+SELECT * FROM expression_table WHERE 200000/4*4+4000 <book_id-100;
+customer_id | book_id | quantity
+304403 | 209743 | 2
+302765 | 214166 | 9
+306895 | 204501 | 6
+303924 | 211991 | 4
+
+SELECT customer_id,quantity*10 FROM expression_table WHERE quantity*10<50;
+customer_id | quantity*10
+304403 | 20
+303924 | 40

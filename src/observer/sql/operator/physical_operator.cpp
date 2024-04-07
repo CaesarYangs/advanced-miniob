@@ -24,6 +24,7 @@ std::string physical_operator_type_name(PhysicalOperatorType type)
     case PhysicalOperatorType::PREDICATE: return "PREDICATE";
     case PhysicalOperatorType::INSERT: return "INSERT";
     case PhysicalOperatorType::DELETE: return "DELETE";
+    case PhysicalOperatorType::UPDATE: return "UPDATE";
     case PhysicalOperatorType::PROJECT: return "PROJECT";
     case PhysicalOperatorType::STRING_LIST: return "STRING_LIST";
     default: return "UNKNOWN";

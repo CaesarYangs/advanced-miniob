@@ -1,0 +1,32 @@
+SELECT * FROM Publisher WHERE name='Miguel Angel Porrua';
+id | name | nation
+100012 | Miguel Angel Porrua | PRC
+
+UPDATE Publisher SET id=100015 WHERE name='Miguel Angel Porrua';
+SUCCESS
+
+SELECT * FROM Publisher WHERE name='Miguel Angel Porrua';
+id | name | nation
+100015 | Miguel Angel Porrua | PRC
+
+SELECT * FROM Publisher WHERE id=100010;
+id | name | nation
+100010 | Aardwolf Publishing | PRC
+
+UPDATE Publisher SET name='BBB' WHERE id=100010;
+SUCCESS
+
+SELECT * FROM Publisher WHERE id=100010;
+id | name | nation
+100010 | BBB | PRC
+
+UPDATE Publisher SET name='Aardwolf Publishing' WHERE id=100010;
+SUCCESS
+
+SELECT * FROM Publisher WHERE id=100010;
+id | name | nation
+100010 | Aardwolf Publishing | PRC
+
+(把数据更新回原来的)
+UPDATE Publisher SET id=100012 WHERE name='Miguel Angel Porrua';
+SUCCESS

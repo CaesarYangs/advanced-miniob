@@ -1,0 +1,48 @@
+
+SELECT count(*) FROM Book;
+COUNT(*)
+90001
+SELECT count(id) FROM Book;
+COUNT(id)
+90001
+SELECT min(copies) FROM Book;
+MIN(copies)
+0
+SELECT max(copies) FROM Book;
+MAX(copies)
+10000
+SELECT avg(copies) FROM Book;
+AVG(copies)
+5010.07
+
+SELECT min(*) FROM Book;
+FAILURE
+SELECT max(*) FROM Book;
+FAILURE
+SELECT avg(*) FROM Book;
+FAILURE
+
+SELECT count(*, id) FROM Book;
+FAILURE
+SELECT min(id, title) FROM Book;
+FAILURE
+SELECT max(id, title) FROM Book;
+FAILURE
+SELECT avg(id, title) FROM Book;
+FAILURE
+
+SELECT count() FROM Book;
+FAILURE
+SELECT min() FROM Book;
+FAILURE
+SELECT max() FROM Book;
+FAILURE
+SELECT avg() FROM Book;
+FAILURE
+
+SELECT min(copies),max(copies),avg(copies) FROM Book;
+MIN(copies) | MAX(copies) | AVG(copies)
+0 | 10000 | 5010.07
+SELECT avg(copies),count(*) FROM Book;
+AVG(copies) | COUNT(*)
+5010.07 | 90001

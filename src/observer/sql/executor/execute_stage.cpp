@@ -51,6 +51,7 @@ RC ExecuteStage::handle_request(SQLStageEvent *sql_event)
   return rc;
 }
 
+// 处理全部经过physical operator的sql语句
 RC ExecuteStage::handle_request_with_physical_operator(SQLStageEvent *sql_event)
 {
   RC rc = RC::SUCCESS;

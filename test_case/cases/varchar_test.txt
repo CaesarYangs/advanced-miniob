@@ -1,0 +1,12 @@
+CREATE table varchar_table(id int,info varchar(10));
+SUCCESS
+
+INSERT INTO varchar_table VALUES(1,'string');
+SUCCESS
+
+SELECT * FROM varchar_table WHERE info='string';
+id | info
+1 | string
+
+DELETE FROM varchar_table WHERE info='string';
+SUCCESS

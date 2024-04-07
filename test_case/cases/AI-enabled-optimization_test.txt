@@ -1,0 +1,6 @@
+由于不同机器的性能存在差异，故不直接使用执行时间作为优化效果的评价指标，而是通过比较优化前后执行时间改善的百分比来评估优化效果。为此，程序应当能够记录SQL查询的执行时间，由于原始的MiniOB基本没做查询优化，当表中元组较多的时候非常耗时，因此实验对比仅使用谓词下推优化和使用谓词下推合并基于代价的优化两种情况下的SQL语句执行时间。以下测试样例适用于Cost-based-optimization和AI-enabled-optimization
+测试查询语句：
+SELECT * FROM Book,Customer,Publisher WHERE Book.id < 200050 AND Publisher.id < 100002 AND Customer.id < 300010;
+SELECT * FROM Publisher,Book WHERE Book.publisher_id = Publisher.id AND Book.id < 200100 AND Publisher.id < 100010;
+要求优化后性能提升比例应不少于20%。
+性能提升比例 = ((Tbefore - Tafter)/Tbefore )×100%,其中Tbefore表示仅完成谓词下推优化的执行时间，Tafter表示完成谓词下推合并基于代价优化后的执行时间，这里基于代价的优化包括传统的cost-based-optimization和AI-enabled-optimization的两种方式。

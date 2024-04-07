@@ -261,6 +261,50 @@ RC RecordPageHandler::delete_record(const RID *rid)
   }
 }
 
+RC RecordPageHandler::update_record(const RID *rid, Field *field, const Value *value, Record *rec)
+{
+  ASSERT(readonly_ == false, "cannot update record from page while the page is readonly");
+
+  if (rid->slot_num >= page_header_->record_capacity) {
+    LOG_ERROR("Invalid slot_num %d, exceed page's record capacity, page_num %d.", rid->slot_num, frame_->page_num());
+    return RC::INVALID_ARGUMENT;
+  }
+
+  Bitmap bitmap(bitmap_, page_header_->record_capacity);
+  if (!bitmap.get_bit(rid->slot_num)) {
+    LOG_ERROR("Invalid slot_num:%d, slot is empty, page_num %d.", rid->slot_num, frame_->page_num());
+    return RC::RECORD_NOT_EXIST;
+  }
+
+  // 在memory中对应的Field中写入新Value
+  // 更新指定字段: 当前方案为 1.取出已有record，2.在mem
+  // pile上写新数据到record中，3.flush整个record到原始指针处（不写单个field了）
+
+  LOG_DEBUG("[[[[[[[RC RecordPageHandler::update_record]]]]]]] test:%d, value_len:%d",field->meta()->len(), strlen(value->data()));
+
+  // 更新value
+  // ATTENTION!!!:地址越界问题：字符串情况下，value的长度只会是字符串的长度，因此如果直接memcpy
+  // meta长度的话，直接就越界了 memcpy(rec->data() + field->meta()->offset(), value->data(), field->meta()->len());
+
+  // 获取字段最大长度和输入值的长度
+  size_t max_field_len = field->meta()->len();   // 字段的最大长度
+  size_t input_len     = strlen(value->data());  // 输入值的实际长度
+
+  // 计算要复制的长度，取输入长度和字段最大长度中的较小者
+  size_t copy_len = (input_len < max_field_len) ? input_len : max_field_len - 1;
+  memcpy(rec->data() + field->meta()->offset(),
+      value->data(),
+      copy_len);  // 将数据复制到记录中，确保不会超过字段的最大长度
+  rec->data()[field->meta()->offset() + copy_len] = '\0';  // 在复制后的字符串末尾添加空字符，确保字符串正确终止
+
+  // 更新memory
+  char *record_data = get_record_data(rid->slot_num);  // 奥卡姆剃刀
+  memcpy(record_data, rec->data(), page_header_->record_real_size);
+  frame_->mark_dirty();
+
+  return RC::SUCCESS;
+}
+
 RC RecordPageHandler::get_record(const RID *rid, Record *rec)
 {
   if (rid->slot_num >= page_header_->record_capacity) {
@@ -425,6 +469,22 @@ RC RecordFileHandler::recover_insert_record(const char *data, int record_size, c
   }
 
   return record_page_handler.recover_insert_record(data, rid);
+}
+
+RC RecordFileHandler::update_record(const RID *rid, Record &record, Field *field, const Value *value)
+{
+  RC rc = RC::SUCCESS;
+
+  RecordPageHandler page_handler;
+  if ((rc = page_handler.init(*disk_buffer_pool_, rid->page_num, false /*readonly*/)) != RC::SUCCESS) {
+    LOG_ERROR("Failed to init record page handler.page number=%d. rc=%s", rid->page_num, strrc(rc));
+    return rc;
+  }
+
+  // main update memory operation func
+  rc = page_handler.update_record(rid, field, value, &record);
+
+  return rc;
 }
 
 RC RecordFileHandler::delete_record(const RID *rid)

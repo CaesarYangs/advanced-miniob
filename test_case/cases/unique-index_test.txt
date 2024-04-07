@@ -1,0 +1,37 @@
+第一种情况：先创建唯一索引，再插入重复数据
+CREATE UNIQUE INDEX test_idx ON Customer(id);
+SUCCESS
+创建结果：miniob/build/miniob/db/sys/Customer.table中生成索引部分的元数据，同时要生成一个名为Customer-test_idx.index的文件，元数据信息如下：
+"indexes" :
+        [
+                {
+                        "field_name" : "id",
+                        "name" : "test_idx",
+                        "unique" : true
+                }
+        ]
+SELECT * FROM Customer WHERE id=300001;
+id | name | rank
+300001| CHAD CABELLO|3
+INSERT INTO Customer VALUES(300001,'MARKOV PROCESS',10);
+FAILURE
+
+第二种情况：先插入重复数据，再在重复字段上创建唯一索引
+SELECT * FROM publisher WHERE id=100008;
+id | name | nation
+100008 | Oxbow Books Limited | PRC
+
+INSERT INTO publisher VALUES(100008,'BeaGay Publications','PRC');
+SUCCESS
+
+SELECT * FROM publisher WHERE id=100008;
+id | name | nation
+100008 | Oxbow Books Limited | PRC
+100008 | BeaGay Publications | PRC
+
+CREATE UNIQUE INDEX test_idx2 ON Publisher(id);
+FAILURE
+
+(删去重复数据)
+DELETE FROM publisher WHERE id=100008 AND name='BeaGay Publications';
+SUCCESS

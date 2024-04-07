@@ -28,6 +28,7 @@ class Index;
 class IndexScanner;
 class RecordDeleter;
 class Trx;
+class Field;
 
 /**
  * @brief 表
@@ -49,6 +50,14 @@ public:
    */
   RC create(int32_t table_id, const char *path, const char *name, const char *base_dir, int attribute_count,
       const AttrInfoSqlNode attributes[]);
+  /**
+   * drop table
+   * @param  {char*} path     :
+   * @param  {char*} name     :
+   * @param  {char*} base_dir :
+   * @return {RC}             :
+   */
+  RC drop(const char *path, const char *name, const char *base_dir);
 
   /**
    * 打开一个表
@@ -72,6 +81,12 @@ public:
    * @param record[in/out] 传入的数据包含具体的数据，插入成功会通过此字段返回RID
    */
   RC insert_record(Record &record);
+
+  // 更新记录
+  RC update_record(Record &record);
+
+  RC update_record(Record &record, Field *field, const Value *value);
+
   RC delete_record(const Record &record);
   RC visit_record(const RID &rid, bool readonly, std::function<void(Record &)> visitor);
   RC get_record(const RID &rid, Record &record);

@@ -69,6 +69,9 @@ public:
       case FLOATS: {
         return common::compare_float((void *)v1, (void *)v2);
       }
+      case DATES: {
+      return Date::compare_date((const Date *)v1, (const Date *)v2);
+    }
       case CHARS: {
         return common::compare_string((void *)v1, attr_length_, (void *)v2, attr_length_);
       }

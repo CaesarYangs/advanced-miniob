@@ -18,6 +18,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/buffer/disk_buffer_pool.h"
 #include "storage/record/record.h"
 #include "storage/trx/latch_memo.h"
+#include "storage/field/field.h"
 #include <limits>
 #include <sstream>
 
@@ -25,6 +26,7 @@ class ConditionFilter;
 class RecordPageHandler;
 class Trx;
 class Table;
+class Field;
 
 /**
  * @brief 这里负责管理在一个文件上表记录(行)的组织/管理
@@ -167,6 +169,14 @@ public:
   RC insert_record(const char *data, RID *rid);
 
   /**
+   * @brief 更新一条记录
+   *
+   * 
+   * 
+   */
+  RC update_record(const RID *rid, Field *field, const Value *value, Record *rec);
+
+  /**
    * @brief 数据库恢复时，在指定位置插入数据
    *
    * @param data 要插入的数据行
@@ -266,6 +276,8 @@ public:
    * @param rid 待删除记录的标识符
    */
   RC delete_record(const RID *rid);
+
+  RC update_record(const RID *rid,Record &record, Field *field, const Value *value);
 
   /**
    * @brief 插入一个新的记录到指定文件中，并返回该记录的标识符

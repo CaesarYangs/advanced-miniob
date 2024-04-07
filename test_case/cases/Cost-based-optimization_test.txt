@@ -1,0 +1,27 @@
+CREATE TABLE relstatistics(table_name char(16),column_name char(16),bucket_num int, histogtram char(512),record_num int)
+---- 存储直方图的表为默认表，表名默认为relstatistics，创建好的直方图直接插入该表即可 ----
+ANALYZE TABLE Publisher(id);
+SUCEESS
+
+SELECT * FROM relstatistics;
+table_name | column_name | bucket_num | histogtram | record_num
+Publisher | id | 10 | (100003,100414),(100417,100583),(100588,100780),(100788,100979),(100981,101166),(101169,101451),(101477,102081),(102126,103301),(103310,104145),(104168,104988)
+
+DELETE  FROM relstatistics;
+SUCCESS
+
+ANALYZE TABLE Book(id,copies);
+SUCCESS
+
+SELECT * FROM relstatistics;
+table_name | column_name | bucket_num | histogtram | record_num
+Book | id | 18 | (200007,205320),(205332,210171),(210174,210918),(210920,211737),(211739,212484),(212485,213241),(213242,213983),(213984,214751),(214752,215511),(215513,217758),(217780,224549),(224565,230794),(230812,242836),(242842,247541),(247542,248311),(248312,249060),(249061,249813),(249814,250000) | 90001
+Book | copies | 18 | (0,844),(845,1761),(1765,2623),(2625,3515),(3516,4411),(4412,5260),(5264,6101),(6104,6952),(6953,7813),(7814,8691),(8692,9563),(9564,9997) | 90001
+该结果与建立直方图的策略有关，比如直方图的桶数，如何采样等。
+
+由于不同机器的性能存在差异，故不直接使用执行时间作为优化效果的评价指标，而是通过比较优化前后执行时间改善的百分比来评估优化效果。为此，程序应当能够记录SQL查询的执行时间，由于原始的MiniOB基本没做查询优化，当表中元组较多的时候非常耗时，因此实验对比仅使用谓词下推优化和使用谓词下推合并基于代价的优化两种情况下的SQL语句执行时间。以下测试样例适用于Cost-based-optimization和AI-enabled-optimization
+测试查询语句：
+SELECT * FROM Book,Customer,Publisher WHERE Book.id < 200050 AND Publisher.id < 100002 AND Customer.id < 300010;
+SELECT * FROM Publisher,Book WHERE Book.publisher_id = Publisher.id AND Book.id < 200100 AND Publisher.id < 100010;
+要求优化后性能提升比例应不少于20%。
+性能提升比例 = ((Tbefore - Tafter)/Tbefore )×100%,其中Tbefore表示仅完成谓词下推优化的执行时间，Tafter表示完成谓词下推合并基于代价优化后的执行时间，这里基于代价的优化包括传统的cost-based-optimization和AI-enabled-optimization的两种方式。

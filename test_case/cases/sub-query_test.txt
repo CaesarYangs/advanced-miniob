@@ -1,0 +1,10 @@
+SELECT * FROM  Publisher WHERE id NOT IN (SELECT publisher_id FROM Book WHERE publisher_id > 100002);
+id | name | nation
+100001 | Sleeping Bear Press | USA
+100002 | Kindred Productions | USA
+
+SELECT * FROM  Publisher WHERE id IN (SELECT publisher_id FROM Book WHERE 1 = 0);
+id | name | nation
+
+SELECT * FROM Publisher WHERE id IN (SELECT * FROM Book);
+FAILURE
