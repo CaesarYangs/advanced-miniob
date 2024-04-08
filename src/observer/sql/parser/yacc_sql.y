@@ -59,6 +59,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
         DROP
         TABLE
         TABLES
+        UNIQUE
         INDEX
         CALC
         SELECT
@@ -111,6 +112,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   Expression *                      expression;
   std::vector<Expression *> *       expression_list;
   std::vector<Value> *              value_list;
+  std::vector<std::string> *        id_list;
   std::vector<ConditionSqlNode> *   condition_list;
   std::vector<RelAttrSqlNode> *     rel_attr_list;
   std::vector<std::string> *        relation_list;
@@ -135,6 +137,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <attr_infos>          attr_def_list
 %type <attr_info>           attr_def
 %type <value_list>          value_list
+%type <id_list>             id_list
 %type <condition_list>      where
 %type <condition_list>      condition_list
 %type <rel_attr_list>       select_attr
@@ -257,17 +260,42 @@ desc_table_stmt:
     }
     ;
 
-create_index_stmt:    /*create index 语句的语法解析树*/
-    CREATE INDEX ID ON ID LBRACE ID RBRACE
+create_index_stmt:
+    CREATE INDEX ID ON ID LBRACE id_list RBRACE SEMICOLON
     {
       $$ = new ParsedSqlNode(SCF_CREATE_INDEX);
       CreateIndexSqlNode &create_index = $$->create_index;
       create_index.index_name = $3;
       create_index.relation_name = $5;
-      create_index.attribute_name = $7;
+      create_index.attribute_names = *$7;
+      delete $7;
       free($3);
       free($5);
-      free($7);
+    }
+    | CREATE UNIQUE INDEX ID ON ID LBRACE ID RBRACE SEMICOLON
+    {
+      $$ = new ParsedSqlNode(SCF_CREATE_UNIQUE_INDEX);
+      CreateIndexSqlNode &create_index = $$->create_index;
+      create_index.index_name = $4;
+      create_index.relation_name = $6;
+      create_index.attribute_names.emplace_back($8);
+      free($4);
+      free($6);
+      free($8);
+    }
+    ;
+id_list:
+    ID
+    {
+      $$ = new std::vector<std::string>;
+      $$->emplace_back($1);
+      free($1);
+    }
+    | id_list COMMA ID
+    {
+      $$ = $1;
+      $$->emplace_back($3);
+      free($3);
     }
     ;
 

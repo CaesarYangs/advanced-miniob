@@ -21,15 +21,16 @@ See the Mulan PSL v2 for more details. */
 using namespace std;
 using namespace common;
 
+// TODO-#1 multi-index
 RC CreateIndexStmt::create(Db *db, const CreateIndexSqlNode &create_index, Stmt *&stmt)
 {
   stmt = nullptr;
 
+  // 获取要插入的表名
   const char *table_name = create_index.relation_name.c_str();
-  if (is_blank(table_name) || is_blank(create_index.index_name.c_str()) ||
-      is_blank(create_index.attribute_name.c_str())) {
+  if (is_blank(table_name) || is_blank(create_index.index_name.c_str()) || create_index.attribute_names.size() == 0) {
     LOG_WARN("invalid argument. db=%p, table_name=%p, index name=%s, attribute name=%s",
-        db, table_name, create_index.index_name.c_str(), create_index.attribute_name.c_str());
+        db, table_name, create_index.index_name.c_str(), create_index.attribute_names[0]);
     return RC::INVALID_ARGUMENT;
   }
 
@@ -40,19 +41,38 @@ RC CreateIndexStmt::create(Db *db, const CreateIndexSqlNode &create_index, Stmt 
     return RC::SCHEMA_TABLE_NOT_EXIST;
   }
 
-  const FieldMeta *field_meta = table->table_meta().field(create_index.attribute_name.c_str());
-  if (nullptr == field_meta) {
-    LOG_WARN("no such field in table. db=%s, table=%s, field name=%s", 
-             db->name(), table_name, create_index.attribute_name.c_str());
-    return RC::SCHEMA_FIELD_NOT_EXIST;
+  // 获取要创建的索引列表
+  // 创建数组field数组并根据sqlnode指定的field插入
+  std::vector<const FieldMeta *> field_meta_list;
+  for (long unsigned int i = 0; i < create_index.attribute_names.size(); i++) {
+    const FieldMeta *tmp = table->table_meta().field(create_index.attribute_names[i].c_str());
+    if (tmp == nullptr) {
+      LOG_WARN("no such field in table. db=%s, table=%s, field name=%s", 
+             db->name(), table_name, create_index.attribute_names[i].c_str());
+    }
+    field_meta_list.push_back(tmp);
   }
 
-  Index *index = table->find_index(create_index.index_name.c_str());
-  if (nullptr != index) {
-    LOG_WARN("index with name(%s) already exists. table name=%s", create_index.index_name.c_str(), table_name);
-    return RC::SCHEMA_INDEX_NAME_REPEAT;
+  // test
+  for (long unsigned int i = 0; i < create_index.attribute_names.size(); i++) {
+    LOG_DEBUG("test multi-index: %d: %s",i,field_meta_list[i]->name());
   }
 
-  stmt = new CreateIndexStmt(table, field_meta, create_index.index_name);
-  return RC::SUCCESS;
+  // const FieldMeta *field_meta = table->table_meta().field(create_index.attribute_name.c_str());
+  // if (nullptr == field_meta) {
+  //   LOG_WARN("no such field in table. db=%s, table=%s, field name=%s",
+  //            db->name(), table_name, create_index.attribute_name.c_str());
+  //   return RC::SCHEMA_FIELD_NOT_EXIST;
+  // }
+
+  // 查找是否已存在该索引
+  // Index *index = table->find_index(create_index.index_name.c_str());
+  // if (nullptr != index) {
+  //   LOG_WARN("index with name(%s) already exists. table name=%s", create_index.index_name.c_str(), table_name);
+  //   return RC::SCHEMA_INDEX_NAME_REPEAT;
+  // }
+
+  // create index stms
+  // stmt = new CreateIndexStmt(table, field_meta, create_index.index_name);
+  return RC::UNIMPLENMENT;
 }
