@@ -49,30 +49,26 @@ RC CreateIndexStmt::create(Db *db, const CreateIndexSqlNode &create_index, Stmt 
     if (tmp == nullptr) {
       LOG_WARN("no such field in table. db=%s, table=%s, field name=%s", 
              db->name(), table_name, create_index.attribute_names[i].c_str());
+      return RC::SCHEMA_FIELD_NOT_EXIST;
     }
     field_meta_list.push_back(tmp);
   }
 
-  // test
-  for (long unsigned int i = 0; i < create_index.attribute_names.size(); i++) {
-    LOG_DEBUG("test multi-index: %d: %s",i,field_meta_list[i]->name());
+  // 查找是否已存在该索引
+  Index *index = table->find_index(create_index.index_name.c_str());
+  if (nullptr != index) {
+    LOG_WARN("index with name(%s) already exists. table name=%s", create_index.index_name.c_str(), table_name);
+    return RC::SCHEMA_INDEX_NAME_REPEAT;
   }
 
-  // const FieldMeta *field_meta = table->table_meta().field(create_index.attribute_name.c_str());
-  // if (nullptr == field_meta) {
-  //   LOG_WARN("no such field in table. db=%s, table=%s, field name=%s",
-  //            db->name(), table_name, create_index.attribute_name.c_str());
-  //   return RC::SCHEMA_FIELD_NOT_EXIST;
-  // }
+  // create index stmt, use vector meta list
+  stmt = new CreateIndexStmt(table, field_meta_list, create_index.index_name);
 
-  // 查找是否已存在该索引
-  // Index *index = table->find_index(create_index.index_name.c_str());
-  // if (nullptr != index) {
-  //   LOG_WARN("index with name(%s) already exists. table name=%s", create_index.index_name.c_str(), table_name);
-  //   return RC::SCHEMA_INDEX_NAME_REPEAT;
-  // }
+  // test for each item in the CreateIndexStmt
+  CreateIndexStmt *createIndexStmt = new CreateIndexStmt(table, field_meta_list, create_index.index_name);
+  for (long unsigned int i = 0; i < createIndexStmt->field_metas().size(); i++) {
+    LOG_DEBUG("[[[[[[[[[[CreateIndexStmt::create]]]]]]]]]]: %d: %s",i,createIndexStmt->field_metas()[i]->name());
+  }
 
-  // create index stms
-  // stmt = new CreateIndexStmt(table, field_meta, create_index.index_name);
-  return RC::UNIMPLENMENT;
+  return RC::SUCCESS;
 }
