@@ -21,7 +21,7 @@ See the Mulan PSL v2 for more details. */
 using namespace std;
 using namespace common;
 
-// TODO-#1 multi-index
+// 第一步，创建索引stmt，所有的前置条件在此判断：是否已存在同名索引，要创建的table和field是否存在
 RC CreateIndexStmt::create(Db *db, const CreateIndexSqlNode &create_index, Stmt *&stmt)
 {
   stmt = nullptr;

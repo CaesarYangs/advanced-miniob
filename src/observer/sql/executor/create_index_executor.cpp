@@ -30,7 +30,7 @@ RC CreateIndexExecutor::execute(SQLStageEvent *sql_event)
 
   CreateIndexStmt *create_index_stmt = static_cast<CreateIndexStmt *>(stmt);
 
-  Trx   *trx   = session->current_trx();
+  Trx   *trx   = session->current_trx();  // 从session对象中获取当前事务
   Table *table = create_index_stmt->table();
-  return table->create_index(trx, create_index_stmt->field_meta(), create_index_stmt->index_name().c_str());
+  return table->create_index(trx, 0, create_index_stmt->field_metas(), create_index_stmt->index_name().c_str());  //根据Multi-index进行改造， create_index stmt由此进行调用，作为重要的参数传递进去
 }

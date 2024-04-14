@@ -52,39 +52,55 @@ enum class BplusTreeOperationType
 class AttrComparator
 {
 public:
-  void init(AttrType type, int length)
+  void init(std::vector<AttrType> type, std::vector<int> length)
   {
     attr_type_   = type;
     attr_length_ = length;
   }
 
-  int attr_length() const { return attr_length_; }
-
-  int operator()(const char *v1, const char *v2) const
+  int attr_length() const
   {
-    switch (attr_type_) {
-      case INTS: {
-        return common::compare_int((void *)v1, (void *)v2);
-      } break;
-      case FLOATS: {
-        return common::compare_float((void *)v1, (void *)v2);
-      }
-      case DATES: {
-      return Date::compare_date((const Date *)v1, (const Date *)v2);
+    int sum_len = 0;
+    for (size_t i = 0; i < attr_length_.size(); i++) {
+      sum_len += attr_length_.at(i);
     }
-      case CHARS: {
-        return common::compare_string((void *)v1, attr_length_, (void *)v2, attr_length_);
+    return sum_len;  // TO DO MULTI INDEX
+  }
+
+  int operator()(const char *v1, const char *v2, bool null_as_differnet = false) const  // for null type
+  {
+    int rc  = 0;
+    int pos = 0;
+    for (size_t i = 1; i < attr_length_.size(); i++) {
+      switch (attr_type_.at(i)) {
+        case INTS:
+        case DATES: {
+          rc = common::compare_int((void *)(v1 + pos), (void *)(v2 + pos));
+        } break;
+        case FLOATS: {
+          rc = common::compare_float((void *)(v1 + pos), (void *)(v2 + pos));
+        } break;
+        case CHARS: {
+          rc = common::compare_string((void *)(v1 + pos), attr_length_.at(i), (void *)(v2 + pos), attr_length_.at(i));
+        } break;
+        default: {
+          LOG_ERROR("unknown attr type. %d", attr_type_.at(i));
+          abort();
+        }
       }
-      default: {
-        ASSERT(false, "unknown attr type. %d", attr_type_);
-        return 0;
+      if (rc != 0) {
+        return rc;
       }
+      pos += attr_length_.at(i);
     }
+    return rc;
   }
 
 private:
-  AttrType attr_type_;
-  int      attr_length_;
+  // AttrType attr_type_;
+  // int      attr_length_;
+  std::vector<AttrType> attr_type_;
+  std::vector<int>      attr_length_;
 };
 
 /**
@@ -95,7 +111,7 @@ private:
 class KeyComparator
 {
 public:
-  void init(AttrType type, int length) { attr_comparator_.init(type, length); }
+  void init(std::vector<AttrType> type, std::vector<int> length) { attr_comparator_.init(type, length); }
 
   const AttrComparator &attr_comparator() const { return attr_comparator_; }
 
@@ -106,7 +122,7 @@ public:
       return result;
     }
 
-    const RID *rid1 = (const RID *)(v1 + attr_comparator_.attr_length());
+    const RID *rid1 = (const RID *)(v1 + attr_comparator_.attr_length());  // TO DO MULTI INDEX
     const RID *rid2 = (const RID *)(v2 + attr_comparator_.attr_length());
     return RID::compare(rid1, rid2);
   }
@@ -122,43 +138,48 @@ private:
 class AttrPrinter
 {
 public:
-  void init(AttrType type, int length)
+  void init(std::vector<AttrType> type, std::vector<int> length)
   {
     attr_type_   = type;
     attr_length_ = length;
   }
 
-  int attr_length() const { return attr_length_; }
+  int attr_length() const { return attr_length_.at(0); }  // TO DO MULTI INDEX
 
   std::string operator()(const char *v) const
   {
-    switch (attr_type_) {
-      case INTS: {
-        return std::to_string(*(int *)v);
-      } break;
-      case FLOATS: {
-        return std::to_string(*(float *)v);
-      }
-      case CHARS: {
-        std::string str;
-        for (int i = 0; i < attr_length_; i++) {
-          if (v[i] == 0) {
-            break;
-          }
-          str.push_back(v[i]);
+    for (long unsigned int i = 0; i < attr_type_.size(); i++) {
+      switch (attr_type_.at(i)) {
+        case INTS: {
+          return std::to_string(*(int *)v);
+        } break;
+        case FLOATS: {
+          return std::to_string(*(float *)v);
         }
-        return str;
-      }
-      default: {
-        ASSERT(false, "unknown attr type. %d", attr_type_);
+        case CHARS: {
+          std::string str;
+          for (int i = 0; i < attr_length_.at(i); i++) {
+            if (v[i] == 0) {
+              break;
+            }
+            str.push_back(v[i]);
+          }
+          return str;
+        }
+        default: {
+          LOG_ERROR("unknown attr type. %d", attr_type_.at(i));
+          abort();
+        }
       }
     }
-    return std::string();
+    return "";
   }
 
 private:
-  AttrType attr_type_;
-  int      attr_length_;
+  // AttrType attr_type_;
+  // int      attr_length_;
+  std::vector<AttrType> attr_type_;
+  std::vector<int>      attr_length_;
 };
 
 /**
@@ -168,7 +189,7 @@ private:
 class KeyPrinter
 {
 public:
-  void init(AttrType type, int length) { attr_printer_.init(type, length); }
+  void init(std::vector<AttrType> type, std::vector<int> length) { attr_printer_.init(type, length); }
 
   const AttrPrinter &attr_printer() const { return attr_printer_; }
 
@@ -194,26 +215,42 @@ private:
  */
 struct IndexFileHeader
 {
-  IndexFileHeader()
+  IndexFileHeader() : root_page(BP_INVALID_PAGE_NUM), internal_max_size(0), leaf_max_size(0), key_length(0)
   {
-    memset(this, 0, sizeof(IndexFileHeader));
-    root_page = BP_INVALID_PAGE_NUM;
+    // 不需要使用 memset 函数清零
   }
-  PageNum  root_page;          ///< 根节点在磁盘中的页号
-  int32_t  internal_max_size;  ///< 内部节点最大的键值对数
-  int32_t  leaf_max_size;      ///< 叶子节点最大的键值对数
-  int32_t  attr_length;        ///< 键值的长度
-  int32_t  key_length;         ///< attr length + sizeof(RID)
-  AttrType attr_type;          ///< 键值的类型
+
+  // IndexFileHeader()
+  // {
+  //   memset(this, 0, sizeof(IndexFileHeader));
+  //   root_page = BP_INVALID_PAGE_NUM;
+  // }
+
+  PageNum root_page;          ///< 根节点在磁盘中的页号
+  int32_t internal_max_size;  ///< 内部节点最大的键值对数
+  int32_t leaf_max_size;      ///< 叶子节点最大的键值对数
+  // int32_t  attr_length;        ///< 键值的长度
+  int32_t key_length;  ///< attr length + sizeof(RID)
+  // AttrType attr_type;          ///< 键值的类型
+  std::vector<int32_t>  attr_length;
+  std::vector<int32_t>  attr_offset;
+  std::vector<AttrType> attr_type;
 
   const std::string to_string()
   {
     std::stringstream ss;
 
-    ss << "attr_length:" << attr_length << ","
+    ss << "attr_length:" << attr_length.at(0);
+    for (long unsigned int i = 1; i < attr_length.size(); i++) {
+      ss << "|" << attr_length.at(i);
+    }
+    ss << ","
        << "key_length:" << key_length << ","
-       << "attr_type:" << attr_type << ","
-       << "root_page:" << root_page << ","
+       << "attr_type:" << attr_type.at(0);
+    for (long unsigned int i = 1; i < attr_type.size(); i++) {
+      ss << "|" << attr_type.at(i);
+    }
+    ss << "root_page:" << root_page << ","
        << "internal_max_size:" << internal_max_size << ","
        << "leaf_max_size:" << leaf_max_size << ";";
 
@@ -447,6 +484,8 @@ public:
    */
   RC create(
       const char *file_name, AttrType attr_type, int attr_length, int internal_max_size = -1, int leaf_max_size = -1);
+  RC create(const char *file_name, std::vector<AttrType> attr_type, std::vector<int> attr_length,
+      std::vector<int> attr_offset, int internal_max_size = -1, int leaf_max_size = -1);
 
   /**
    * 打开名为fileName的索引文件。
