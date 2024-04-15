@@ -232,23 +232,27 @@ struct IndexFileHeader
   // int32_t  attr_length;        ///< 键值的长度
   int32_t key_length;  ///< attr length + sizeof(RID)
   // AttrType attr_type;          ///< 键值的类型
-  std::vector<int32_t>  attr_length;
-  std::vector<int32_t>  attr_offset;
-  std::vector<AttrType> attr_type;
+  // std::vector<int32_t>  attr_length;
+  // std::vector<int32_t>  attr_offset;
+  // std::vector<AttrType> attr_type;
+  int32_t attr_num;
+  int32_t attr_length[MAX_NUM];
+  int32_t attr_offset[MAX_NUM];
+  AttrType attr_type[MAX_NUM];
 
   const std::string to_string()
   {
     std::stringstream ss;
 
-    ss << "attr_length:" << attr_length.at(0);
-    for (long unsigned int i = 1; i < attr_length.size(); i++) {
-      ss << "|" << attr_length.at(i);
+    ss << "attr_length:" << attr_length[0];
+    for (int i = 1; i < attr_num; i++) {
+      ss << "|" << attr_length[i];
     }
     ss << ","
        << "key_length:" << key_length << ","
-       << "attr_type:" << attr_type.at(0);
-    for (long unsigned int i = 1; i < attr_type.size(); i++) {
-      ss << "|" << attr_type.at(i);
+       << "attr_type:" << attr_type[0];
+    for (int i = 1; i < attr_num; i++) {
+      ss << "|" << attr_type[i];
     }
     ss << "root_page:" << root_page << ","
        << "internal_max_size:" << internal_max_size << ","
