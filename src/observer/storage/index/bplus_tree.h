@@ -46,7 +46,7 @@ enum class BplusTreeOperationType
 };
 
 /**
- * @brief 属性比较(BplusTree)
+ * @brief 属性比较(BplusTree) 用于确定索引在B+ Tree的插入位置
  * @ingroup BPlusTree
  */
 class AttrComparator
@@ -62,29 +62,29 @@ public:
   {
     int sum_len = 0;
     for (size_t i = 0; i < attr_length_.size(); i++) {
-      sum_len += attr_length_.at(i);
+      sum_len += attr_length_[i];
     }
     return sum_len;  // TO DO MULTI INDEX
   }
 
   int operator()(const char *v1, const char *v2, bool null_as_differnet = false) const  // for null type
   {
+    LOG_DEBUG("[[[I'm Here NOW]]]");
     int rc  = 0;
     int pos = 0;
-    for (size_t i = 1; i < attr_length_.size(); i++) {
-      switch (attr_type_.at(i)) {
-        case INTS:
-        case DATES: {
+    for (size_t i = 0; i < attr_length_.size(); i++) {
+      switch (attr_type_[i]) {
+        case INTS: {
           rc = common::compare_int((void *)(v1 + pos), (void *)(v2 + pos));
         } break;
         case FLOATS: {
           rc = common::compare_float((void *)(v1 + pos), (void *)(v2 + pos));
         } break;
         case CHARS: {
-          rc = common::compare_string((void *)(v1 + pos), attr_length_.at(i), (void *)(v2 + pos), attr_length_.at(i));
+          rc = common::compare_string((void *)(v1 + pos), attr_length_[i], (void *)(v2 + pos), attr_length_[i]);
         } break;
         default: {
-          LOG_ERROR("unknown attr type. %d", attr_type_.at(i));
+          LOG_ERROR("unknown attr type. %d", attr_type_[i]);
           abort();
         }
       }
@@ -115,6 +115,61 @@ public:
 
   const AttrComparator &attr_comparator() const { return attr_comparator_; }
 
+  const std::vector<FieldMeta> field_meta() { return key_field_meta_; };
+
+  void set_field_meta(const std::vector<FieldMeta> input) { key_field_meta_ = input; }
+
+  static int compare_v2(const char *r1, const char *r2, const std::vector<FieldMeta> &key_field_meta)
+  {
+    LOG_DEBUG("[[[[[[[[[[[[[I am here too too too]]]]]]]]]]]]]");
+    int pos = 0;
+    for (size_t i = 0; i < key_field_meta.size(); i++) {
+      const FieldMeta &field = key_field_meta[i];
+      LOG_DEBUG("[[[[[[[[[[[[[ Field for loop ]]]]]]]]]]]]] %d",i);
+
+      switch (field.type()) {
+        case INTS: {
+          int val1 = *(int *)(r1 + pos);
+          int val2 = *(int *)(r2 + pos);
+          LOG_DEBUG("[Field Compare v2]%zu: %d, %d\n", i, val1,val2);
+          if (val1 == val2) {
+            return 0;
+          }
+          break;
+        }
+        case FLOATS: {
+          float val1 = *(float *)(r1 + pos);
+          float val2 = *(float *)(r2 + pos);
+          LOG_DEBUG("[Field Compare v2]%zu: %f, %f\n", i, val1,val2);
+          if (val1 == val2) {
+            return 0;
+          }
+          break;
+        }
+        case CHARS: {
+          char *val1 = new char[field.len() + 1];
+          char *val2 = new char[field.len() + 1];
+          memcpy(val1, r1 + pos, field.len());
+          memcpy(val2, r2 + pos, field.len());
+          val1[field.len()] = '\0';
+          val2[field.len()] = '\0';
+          LOG_DEBUG("[Field Compare v2]%zu: %s, %s\n", i, val1,val2);
+          if (val1 == val2) {
+            return 0;
+          }
+          delete[] val1;
+          delete[] val2;
+          break;
+        }
+          // 其他类型的处理...
+      }
+
+      pos += field.len();
+    }
+    return 1;
+  }
+
+  // 核心比较函数
   int operator()(const char *v1, const char *v2) const
   {
     int result = attr_comparator_(v1, v2);
@@ -122,13 +177,38 @@ public:
       return result;
     }
 
-    const RID *rid1 = (const RID *)(v1 + attr_comparator_.attr_length());  // TO DO MULTI INDEX
+    const RID *rid1 =
+        (const RID *)(v1 + attr_comparator_.attr_length());  // TO DO MULTI INDEX: RID存储在record内存记录的最后
     const RID *rid2 = (const RID *)(v2 + attr_comparator_.attr_length());
     return RID::compare(rid1, rid2);
   }
 
+  // 核心比较函数-int id类型比较
+  int operator()(const char *v1, const char *v2, bool is_unique) const
+  {
+    LOG_DEBUG("[[[I'm Here]]]");
+    int result = attr_comparator_(v1, v2);
+    if (result != 0) {
+      return result;
+    }
+
+    return attr_comparator_(v1, v2, is_unique);
+  }
+
+  // 核心比较函数
+  int operator()(const char *v1, const char *v2, const std::vector<FieldMeta> key_field_meta) const
+  {
+    int result = attr_comparator_(v1, v2);
+    if (result != 0) {
+      return result;
+    }
+
+    return compare_v2(v1, v2, key_field_meta);
+  }
+
 private:
-  AttrComparator attr_comparator_;
+  AttrComparator         attr_comparator_;
+  std::vector<FieldMeta> key_field_meta_;
 };
 
 /**
@@ -235,9 +315,9 @@ struct IndexFileHeader
   // std::vector<int32_t>  attr_length;
   // std::vector<int32_t>  attr_offset;
   // std::vector<AttrType> attr_type;
-  int32_t attr_num;
-  int32_t attr_length[MAX_NUM];
-  int32_t attr_offset[MAX_NUM];
+  int32_t  attr_num;
+  int32_t  attr_length[MAX_NUM];
+  int32_t  attr_offset[MAX_NUM];
   AttrType attr_type[MAX_NUM];
 
   const std::string to_string()
@@ -385,6 +465,9 @@ public:
    * 如果key已经存在，会设置found的值。
    */
   int lookup(const KeyComparator &comparator, const char *key, bool *found = nullptr) const;
+
+  int lookup(
+      const KeyComparator &comparator, const char *key, bool *found, bool is_unique) const;
 
   void insert(int index, const char *key, const char *value);
   void remove(int index);
@@ -536,6 +619,18 @@ public:
    */
   bool validate_tree();
 
+  const int is_unique() { return is_unique_; };
+
+  void set_unique(const int unique) { is_unique_ = unique; }
+
+  const std::vector<FieldMeta> field_meta() { return field_meta_; };
+
+  void set_field_meta(const std::vector<FieldMeta> input) { field_meta_ = input; }
+
+  const char *get_user_key() { return user_key_; };
+
+  void set_user_key(const char *user_key) { user_key_ = user_key; }
+
 public:
   /**
    * 这些函数都是线程不安全的，不要在多线程的环境下调用
@@ -602,9 +697,14 @@ protected:
 
   std::unique_ptr<common::MemPoolItem> mem_pool_item_;
 
+  const char *user_key_;
+
+  int is_unique_;
+
 private:
   friend class BplusTreeScanner;
   friend class BplusTreeTester;
+  std::vector<FieldMeta> field_meta_;
 };
 
 /**

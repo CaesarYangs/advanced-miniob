@@ -6,3 +6,9 @@ CREATE TABLE Orders (customer_id int(10) ,book_id int(10) ,quantity int(10));
 
 --- 将txt中的数据导入进miniob的数据表中
 load data infile '.../Book.txt' into table Book;
+
+load data infile '../test_case/dataset/Book.txt' into table Book;
+
+load data infile '../test_case/dataset/Customer.txt' into table Customer;
+
+load data infile '../test_case/dataset/Publisher.txt' into table Publisher;

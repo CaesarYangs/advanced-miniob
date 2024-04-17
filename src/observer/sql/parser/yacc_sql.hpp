@@ -130,9 +130,10 @@ union YYSTYPE
   std::vector<std::string> *        relation_list;
   char *                            string;
   int                               number;
+  int opt_unique;
   float                             floats;
 
-#line 136 "yacc_sql.hpp"
+#line 137 "yacc_sql.hpp"
 
 };
 typedef union YYSTYPE YYSTYPE;

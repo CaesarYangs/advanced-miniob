@@ -176,6 +176,16 @@ int LeafIndexNodeHandler::lookup(const KeyComparator &comparator, const char *ke
   return iter - iter_begin;
 }
 
+int LeafIndexNodeHandler::lookup(const KeyComparator &comparator, const char *key, bool *found, bool is_unique) const
+{
+  const int                    size = this->size();
+  common::BinaryIterator<char> iter_begin(item_size(), __key_at(0));
+  common::BinaryIterator<char> iter_end(item_size(), __key_at(size));
+  LOG_DEBUG("[[[I'm Here Here Here]]]");
+  common::BinaryIterator<char> iter = lower_bound_v2_advanced(iter_begin, iter_end, key, comparator, found, is_unique);
+  return iter - iter_begin;
+}
+
 void LeafIndexNodeHandler::insert(int index, const char *key, const char *value)
 {
   if (index < size()) {
@@ -741,11 +751,12 @@ RC BplusTreeHandler::create(const char *file_name, std::vector<AttrType> attr_ty
   // file_header->key_length        = attr_length + sizeof(RID);
   // file_header->attr_offset       = attr_offset;
   for (size_t i = 0; i < attr_length.size(); i++) {
-    file_header->attr_length[i] = attr_length[i];
-    file_header->attr_offset[i] = attr_offset[i];
-    file_header->attr_type[i] = attr_type[i];
+    file_header->attr_length[i] = int32_t(attr_length[i]);
+    file_header->attr_offset[i] = int32_t(attr_offset[i]);
+    file_header->attr_type[i]   = attr_type[i];
   }
-  file_header->key_length        = length_sum + sizeof(RID);
+  file_header->key_length = length_sum + sizeof(RID);
+  file_header->attr_num = attr_length.size();  // TODO 非常奇怪，这个东西决定了索引能不能正常使用查找
   // file_header->attr_type         = attr_type;
   file_header->internal_max_size = internal_max_size;
   file_header->leaf_max_size     = leaf_max_size;
@@ -762,13 +773,13 @@ RC BplusTreeHandler::create(const char *file_name, std::vector<AttrType> attr_ty
   header_dirty_ = false;
   bp->unpin_page(header_frame);
 
-  mem_pool_item_ = make_unique<common::MemPoolItem>(file_name);
+  mem_pool_item_ = std::unique_ptr<common::MemPoolItem>(new common::MemPoolItem(file_name));
   if (mem_pool_item_->init(file_header->key_length) < 0) {
     LOG_WARN("Failed to init memory pool for index %s", file_name);
     close();
     return RC::NOMEM;
-  } 
-  
+  }
+
   // 不要使用栈上分配的空间，再次初始化后会出现野指针
   // key_comparator_.init(file_header->attr_type, file_header->attr_length);
   // key_printer_.init(file_header->attr_type, file_header->attr_length);
@@ -810,7 +821,7 @@ RC BplusTreeHandler::open(const char *file_name)
   header_dirty_     = false;
   disk_buffer_pool_ = disk_buffer_pool;
 
-  mem_pool_item_ = make_unique<common::MemPoolItem>(file_name);
+  mem_pool_item_ = std::unique_ptr<common::MemPoolItem>(new common::MemPoolItem(file_name));
   if (mem_pool_item_->init(file_header_.key_length) < 0) {
     LOG_WARN("Failed to init memory pool for index %s", file_name);
     close();
@@ -820,7 +831,7 @@ RC BplusTreeHandler::open(const char *file_name)
   disk_buffer_pool->unpin_page(frame);
 
   std::vector<AttrType> attr_type;
-  std::vector<int32_t> attr_length;
+  std::vector<int32_t>  attr_length;
   for (int i = 0; i < file_header_.attr_num; i++) {
     attr_type.push_back(file_header_.attr_type[i]);
     attr_length.push_back(file_header_.attr_length[i]);
@@ -828,6 +839,7 @@ RC BplusTreeHandler::open(const char *file_name)
 
   key_comparator_.init(attr_type, attr_length);
   key_printer_.init(attr_type, attr_length);
+  // key_comparator_.set_field_meta(field_meta_);
 
   // 存在问题：不能读取file_header_.attr_type与file_header_.attr_length这两块内存，否则直接segmentation fault
   // key_comparator_.init(file_header_.attr_type, file_header_.attr_length);
@@ -1120,12 +1132,14 @@ RC BplusTreeHandler::crabing_protocal_fetch_page(
   return rc;
 }
 
+// unique-index core section
 RC BplusTreeHandler::insert_entry_into_leaf_node(LatchMemo &latch_memo, Frame *frame, const char *key, const RID *rid)
 {
   LeafIndexNodeHandler leaf_node(file_header_, frame);
-  bool                 exists          = false;  // 该数据是否已经存在指定的叶子节点中了
-  int                  insert_position = leaf_node.lookup(key_comparator_, key, &exists);
-  if (exists) {
+  bool                 exists = false;  // 该数据是否已经存在指定的叶子节点中了
+  LOG_DEBUG("[[[I'm Here Here Here Here]]]");
+  int insert_position = leaf_node.lookup(key_comparator_, key, &exists, is_unique_);
+  if (is_unique_ == 1 && exists) {
     LOG_TRACE("entry exists");
     return RC::RECORD_DUPLICATE_KEY;
   }
@@ -1373,6 +1387,8 @@ RC BplusTreeHandler::insert_entry(const char *user_key, const RID *rid)
     return rc;
   }
 
+  set_user_key(user_key);  // 设置插入的record地址
+  LOG_DEBUG("[[[[[[[[[[[[[[[[field_meta_ size insert_entry]]]]]]]]]]]]]]]] field_meta_size=%d",field_meta_.size());
   rc = insert_entry_into_leaf_node(latch_memo, frame, key, rid);
   if (rc != RC::SUCCESS) {
     LOG_TRACE("Failed to insert into leaf of index, rid:%s. rc=%s", rid->to_string().c_str(), strrc(rc));

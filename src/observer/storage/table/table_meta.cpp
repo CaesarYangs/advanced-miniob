@@ -26,6 +26,7 @@ static const Json::StaticString FIELD_TABLE_ID("table_id");
 static const Json::StaticString FIELD_TABLE_NAME("table_name");
 static const Json::StaticString FIELD_FIELDS("fields");
 static const Json::StaticString FIELD_INDEXES("indexes");
+static const Json::StaticString UNIQUE_INDEX("unique");
 
 TableMeta::TableMeta(const TableMeta &other)
     : table_id_(other.table_id_),

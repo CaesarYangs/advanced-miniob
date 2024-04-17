@@ -118,6 +118,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   std::vector<std::string> *        relation_list;
   char *                            string;
   int                               number;
+  int opt_unique;
   float                             floats;
 }
 
@@ -138,6 +139,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <attr_info>           attr_def
 %type <value_list>          value_list
 %type <id_list>             id_list
+%type<opt_unique>           opt_unique
 %type <condition_list>      where
 %type <condition_list>      condition_list
 %type <rel_attr_list>       select_attr
@@ -261,29 +263,31 @@ desc_table_stmt:
     ;
 
 create_index_stmt:
-    CREATE INDEX ID ON ID LBRACE id_list RBRACE SEMICOLON
+    CREATE opt_unique INDEX ID ON ID LBRACE id_list RBRACE SEMICOLON
     {
       $$ = new ParsedSqlNode(SCF_CREATE_INDEX);
       CreateIndexSqlNode &create_index = $$->create_index;
-      create_index.index_name = $3;
-      create_index.relation_name = $5;
-      create_index.attribute_names = *$7;
-      delete $7;
-      free($3);
-      free($5);
-    }
-    | CREATE UNIQUE INDEX ID ON ID LBRACE ID RBRACE SEMICOLON
-    {
-      $$ = new ParsedSqlNode(SCF_CREATE_UNIQUE_INDEX);
-      CreateIndexSqlNode &create_index = $$->create_index;
       create_index.index_name = $4;
       create_index.relation_name = $6;
-      create_index.attribute_names.emplace_back($8);
+      create_index.attribute_names = *$8;
+      create_index.is_unique = $2 ? 1 : 0;
+      delete $8;
       free($4);
       free($6);
-      free($8);
     }
     ;
+
+opt_unique:
+    /* empty */
+    {
+      $$ = 0;
+    }
+    | UNIQUE
+    {
+      $$ = 1;
+    }
+    ;
+
 id_list:
     ID
     {

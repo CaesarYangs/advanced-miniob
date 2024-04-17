@@ -213,7 +213,7 @@ RC Table::open(const char *meta_file, const char *base_dir)
   for (int i = 0; i < index_num; i++) {
     const IndexMeta                *index_meta        = table_meta_.index(i);
     const std::vector<std::string> *index_field_names = index_meta->fields();
-    std::vector<FieldMeta>          *field_metas = new vector<FieldMeta>;
+    std::vector<FieldMeta>         *field_metas       = new vector<FieldMeta>;
 
     for (unsigned long int i = 0; i < index_field_names->size(); i++) {
       const char      *field_name = index_field_names->at(i).data();
@@ -364,8 +364,26 @@ RC Table::make_record(int value_num, const Value *values, Record &record)
       }
     }
     memcpy(record_data + field->offset(), value.data(), copy_len);
-  }
 
+    // // 根据字段类型打印字段值
+    // switch (field->type()) {
+    //   case INTS: {
+    //     int val = *(int *)(record_data + field->offset());
+    //     LOG_DEBUG("Field %d: %d\n", i, val);
+    //     break;
+    //   }
+    //   case FLOATS: {
+    //     float val = *(float *)(record_data + field->offset());
+    //     LOG_DEBUG("Field %d: %.2f\n", i, val);
+    //     break;
+    //   }
+    //   case CHARS: {
+    //     char *val = record_data + field->offset();
+    //     LOG_DEBUG("Field %d: %s\n", i, val);
+    //     break;
+    //   }
+    // }
+  }
   record.set_data_owner(record_data, record_size);
   return RC::SUCCESS;
 }
@@ -504,7 +522,7 @@ RC Table::get_record_scanner(RecordFileScanner &scanner, Trx *trx, bool readonly
 // }
 
 // create_index核心函数：当前连接trx，field_list，index_name
-RC Table::create_index(Trx *trx, bool unique, std::vector<const FieldMeta *> field_meta_list, const char *index_name)
+RC Table::create_index(Trx *trx, int unique, std::vector<const FieldMeta *> field_meta_list, const char *index_name)
 {
   // 合法性检查
   if (common::is_blank(index_name) || 0 == field_meta_list.size()) {
@@ -514,7 +532,7 @@ RC Table::create_index(Trx *trx, bool unique, std::vector<const FieldMeta *> fie
 
   IndexMeta new_index_meta;
 
-  RC rc = new_index_meta.init(index_name, field_meta_list);  // 初始化IndexMeta
+  RC rc = new_index_meta.init(index_name, field_meta_list, unique);  // 初始化IndexMeta
   if (rc != RC::SUCCESS) {
     LOG_INFO("Failed to init IndexMeta in table:%s, index_name:%s, field_size:%d", 
              name(), index_name, field_meta_list.size());
@@ -522,7 +540,7 @@ RC Table::create_index(Trx *trx, bool unique, std::vector<const FieldMeta *> fie
   }
 
   // 创建索引相关数据
-  BplusTreeIndex *index      = new BplusTreeIndex();
+  BplusTreeIndex *index      = new BplusTreeIndex(unique);
   std::string     index_file = table_index_file(base_dir_.c_str(), name(), index_name);  // 在磁盘创建索引文件
 
   // 写的不优雅：用于将 std::vector<const FieldMeta *>转化为 std::vector<FieldMeta>
@@ -556,10 +574,15 @@ RC Table::create_index(Trx *trx, bool unique, std::vector<const FieldMeta *> fie
                name(), index_name, strrc(rc));
       return rc;
     }
+    LOG_DEBUG("[[[[[[[[[[[[[[unique index data]]]]]]]]]]]]]] data:%d",record.data());
     rc = index->insert_entry(record.data(), &record.rid());  // 插入索引节点
     if (rc != RC::SUCCESS) {
       LOG_WARN("failed to insert record into index while creating index. table=%s, index=%s, rc=%s",
                name(), index_name, strrc(rc));
+      
+      data_buffer_pool_->close_file();
+      data_buffer_pool_->drop_file(index_file.c_str());  // 删除临时创建的索引文件 此处连续操作会有内存泄露bug
+      data_buffer_pool_ = nullptr;
       return rc;
     }
   }
@@ -604,7 +627,7 @@ RC Table::create_index(Trx *trx, bool unique, std::vector<const FieldMeta *> fie
   }
 
   table_meta_.swap(new_table_meta);
-  table_meta_.show_index(std::cout);  //test
+  table_meta_.show_index(std::cout);  // test
   LOG_INFO("Successfully added a new index (%s) on the table (%s)", index_name, name());
   return rc;
 }

@@ -62,12 +62,12 @@ RC CreateIndexStmt::create(Db *db, const CreateIndexSqlNode &create_index, Stmt 
   }
 
   // create index stmt, use vector meta list
-  stmt = new CreateIndexStmt(table, field_meta_list, create_index.index_name);
+  stmt = new CreateIndexStmt(table, field_meta_list, create_index.index_name,create_index.is_unique);
 
   // test for each item in the CreateIndexStmt
-  CreateIndexStmt *createIndexStmt = new CreateIndexStmt(table, field_meta_list, create_index.index_name);
+  CreateIndexStmt *createIndexStmt = new CreateIndexStmt(table, field_meta_list, create_index.index_name,create_index.is_unique);
   for (long unsigned int i = 0; i < createIndexStmt->field_metas().size(); i++) {
-    LOG_DEBUG("[[[[[[[[[[CreateIndexStmt::create]]]]]]]]]]: %d: %s",i,createIndexStmt->field_metas()[i]->name());
+    LOG_DEBUG("[[[[[[[[[[CreateIndexStmt::create]]]]]]]]]]: %d: %s is_unique:%d",i,createIndexStmt->field_metas()[i]->name(),createIndexStmt->is_unique());
   }
 
   return RC::SUCCESS;
