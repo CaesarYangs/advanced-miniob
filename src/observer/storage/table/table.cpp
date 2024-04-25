@@ -261,13 +261,13 @@ RC Table::insert_record(Record &record)
   if (rc != RC::SUCCESS) {  // 可能出现了键值重复
     RC rc2 = delete_entry_of_indexes(record.data(), record.rid(), false /*error_on_not_exists*/);
     if (rc2 != RC::SUCCESS) {
-      LOG_ERROR("Failed to rollback index data when insert index entries failed. table name=%s, rc=%d:%s",
-                name(), rc2, strrc(rc2));
+      // LOG_ERROR("Failed to rollback index data when insert index entries failed. table name=%s, rc=%d:%s",
+      //           name(), rc2, strrc(rc2));
     }
     rc2 = record_handler_->delete_record(&record.rid());
     if (rc2 != RC::SUCCESS) {
-      LOG_PANIC("Failed to rollback record data when insert index entries failed. table name=%s, rc=%d:%s",
-                name(), rc2, strrc(rc2));
+      // LOG_PANIC("Failed to rollback record data when insert index entries failed. table name=%s, rc=%d:%s",
+      //           name(), rc2, strrc(rc2));
     }
   }
   return rc;
@@ -580,9 +580,9 @@ RC Table::create_index(Trx *trx, int unique, std::vector<const FieldMeta *> fiel
       LOG_WARN("failed to insert record into index while creating index. table=%s, index=%s, rc=%s",
                name(), index_name, strrc(rc));
       
-      data_buffer_pool_->close_file();
+      // data_buffer_pool_->close_file();
       data_buffer_pool_->drop_file(index_file.c_str());  // 删除临时创建的索引文件 此处连续操作会有内存泄露bug
-      data_buffer_pool_ = nullptr;
+      // data_buffer_pool_ = nullptr;
       return rc;
     }
   }
@@ -627,7 +627,7 @@ RC Table::create_index(Trx *trx, int unique, std::vector<const FieldMeta *> fiel
   }
 
   table_meta_.swap(new_table_meta);
-  table_meta_.show_index(std::cout);  // test
+  // table_meta_.show_index(std::cout);  // test
   LOG_INFO("Successfully added a new index (%s) on the table (%s)", index_name, name());
   return rc;
 }
@@ -635,12 +635,12 @@ RC Table::create_index(Trx *trx, int unique, std::vector<const FieldMeta *> fiel
 RC Table::delete_record(const Record &record)
 {
   RC rc = RC::SUCCESS;
-  for (Index *index : indexes_) {
-    rc = index->delete_entry(record.data(), &record.rid());
-    ASSERT(RC::SUCCESS == rc, 
-           "failed to delete entry from index. table name=%s, index name=%s, rid=%s, rc=%s",
-           name(), index->index_meta().name(), record.rid().to_string().c_str(), strrc(rc));
-  }
+  // for (Index *index : indexes_) {
+  //   rc = index->delete_entry(record.data(), &record.rid());
+  //   ASSERT(RC::SUCCESS == rc, 
+  //          "failed to delete entry from index. table name=%s, index name=%s, rid=%s, rc=%s",
+  //          name(), index->index_meta().name(), record.rid().to_string().c_str(), strrc(rc));
+  // }
   LOG_DEBUG("(((((RC Table::delete_record))))) test:%s",record.rid().to_string().c_str());
   rc = record_handler_->delete_record(&record.rid());
   return rc;
