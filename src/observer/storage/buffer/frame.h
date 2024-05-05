@@ -127,6 +127,13 @@ public:
   void read_unlatch();
   void read_unlatch(intptr_t xid);
 
+  void set_text() {
+    if_text_ = true;
+  }
+  bool get_text() {
+    return if_text_;
+  }
+
   friend std::string to_string(const Frame &frame);
 
 private:
@@ -137,6 +144,7 @@ private:
   unsigned long    acc_time_  = 0;
   int              file_desc_ = -1;
   Page             page_;
+  bool              if_text_ = false;
 
   /// 在非并发编译时，加锁解锁动作将什么都不做
   common::RecursiveSharedMutex lock_;

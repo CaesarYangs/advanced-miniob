@@ -49,10 +49,14 @@ RC InsertStmt::create(Db *db, const InsertSqlNode &inserts, Stmt *&stmt)
 
   // check fields type
   const int sys_field_num = table_meta.sys_field_num();//
+  
+
+  
   for (int i = 0; i < value_num; i++) {
     const FieldMeta *field_meta = table_meta.field(i + sys_field_num);
     const AttrType   field_type = field_meta->type();
     const AttrType   value_type = values[i].attr_type();
+
     
      if (!Value::convert(value_type, field_type,
                         const_cast<Value &>(values[i]))) { // TODO try to convert the value type to field type
@@ -60,9 +64,19 @@ RC InsertStmt::create(Db *db, const InsertSqlNode &inserts, Stmt *&stmt)
           table_name, field_meta->name(), field_type, value_type);
       return RC::SCHEMA_FIELD_TYPE_MISMATCH;
     }
+
+    bool match = field_meta->match(const_cast<Value &>(values[i]));
+    if (!match) {
+        LOG_WARN("field does not match value(%s and %s)", 
+          attr_type_to_string(field_meta->type()), 
+          attr_type_to_string(values[i].attr_type()));
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
+    
   }
 
   // everything alright
   stmt = new InsertStmt(table, values, value_num);
+  
   return RC::SUCCESS;
 }

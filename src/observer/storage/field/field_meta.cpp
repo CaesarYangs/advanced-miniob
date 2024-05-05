@@ -18,6 +18,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/parser/parse_defs.h"
 
 #include "json/json.h"
+#include <cmath>
 
 const static Json::StaticString FIELD_NAME("name");
 const static Json::StaticString FIELD_TYPE("type");
@@ -65,6 +66,48 @@ int FieldMeta::offset() const { return attr_offset_; }
 int FieldMeta::len() const { return attr_len_; }
 
 bool FieldMeta::visible() const { return visible_; }
+
+bool FieldMeta::match(Value &value) const {
+  if (value.attr_type() == BOOLEANS) {
+    value.set_int(value.get_int());
+  }
+  if (attr_type_ == FLOATS && value.attr_type() == INTS) {
+    value.set_float(value.get_int());
+    return true;
+  }
+  if (attr_type_ == INTS && value.attr_type() == FLOATS) {
+    value.set_int(std::round(value.get_float()));
+    return true;
+  }
+  if (attr_type_ == CHARS) {
+    value.set_string(value.to_string().c_str());
+    return true;
+  }
+  if (attr_type_ == TEXTS) {
+    if (value.get_string().size() > 65535) 
+      return false;
+    
+    value.set_text(value.get_string().c_str());
+    value.set_text_f();
+    return true;
+  }
+  if (value.attr_type() == CHARS) {
+    if (!is_float(value.to_string())) return false;
+    if (attr_type_ == INTS) {
+      value.set_int(std::stoi(value.to_string()));
+    } else if (attr_type_ == FLOATS) {
+      value.set_int(std::stof(value.to_string()));
+    } 
+    return true;
+  }
+  if (attr_len_ < value.length() || attr_type_ != value.attr_type()) return false;
+  return true;
+}
+
+bool FieldMeta::match(const Value &value) const {
+  if (attr_len_ < value.length() || attr_type_ != value.attr_type()) return false;
+  return true;
+}
 
 void FieldMeta::desc(std::ostream &os) const
 {

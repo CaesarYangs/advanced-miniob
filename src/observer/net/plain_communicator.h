@@ -17,6 +17,7 @@ See the Mulan PSL v2 for more details. */
 #include <vector>
 
 #include "net/communicator.h"
+#include "sql/executor/sql_result.h"
 
 /**
  * @brief 与客户端进行通讯
@@ -35,6 +36,7 @@ public:
 private:
   RC write_state(SessionEvent *event, bool &need_disconnect);
   RC write_debug(SessionEvent *event, bool &need_disconnect);
+  RC write_tuple(SqlResult *sql_result);
   RC write_result_internal(SessionEvent *event, bool &need_disconnect);
 
 protected:

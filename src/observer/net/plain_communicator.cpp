@@ -19,6 +19,8 @@ See the Mulan PSL v2 for more details. */
 #include "net/buffered_writer.h"
 #include "session/session.h"
 #include "sql/expr/tuple.h"
+#include <memory>
+#include "sql/operator/project_physical_operator.h"
 
 using namespace std;
 
@@ -39,7 +41,7 @@ RC PlainCommunicator::read_event(SessionEvent *&event)
   int data_len = 0;
   int read_len = 0;
 
-  const int    max_packet_size = 8192;
+  const int    max_packet_size = 81920;
   vector<char> buf(max_packet_size);
 
   // 持续接收消息，直到遇到'\0'。将'\0'遇到的后续数据直接丢弃没有处理，因为目前仅支持一收一发的模式
@@ -180,6 +182,62 @@ RC PlainCommunicator::write_result(SessionEvent *event, bool &need_disconnect)
   return rc;
 }
 
+RC PlainCommunicator::write_tuple(SqlResult *sql_result) {
+  RC rc = RC::SUCCESS;
+
+  Tuple *tuple = nullptr;
+  bool aggregate = false;
+  std::vector<Value> last_values;
+
+
+  while (RC::SUCCESS == (rc = sql_result->next_tuple(tuple))) {
+    int cell_num = tuple->cell_num();
+    
+
+    for (int i = 0; i < cell_num; i++) {
+      if (i != 0 && !aggregate) {
+        const char *delim = " | ";
+        writer_->writen(delim, strlen(delim));
+      }
+
+      Value value;
+      rc = tuple->cell_at(i, value);
+      if (rc != RC::SUCCESS)
+        return rc;
+
+      if (value.attr_type() == TEXTS)
+      {
+        RID *rid = reinterpret_cast<RID *>(const_cast<char *>(value.data()));
+        size_t len = rid->text_value;
+        char *ss = new char[len + 1];
+        char *p = ss;
+        while (rid != nullptr && rid->init) {
+          Record rec_new;
+          tuple->get_text_record(rec_new, rid);
+          memcpy(p, rec_new.data(), rec_new.len());
+          p += rec_new.len();
+          rid = rid->next_RID;
+        }
+        writer_->writen(ss, len);
+        delete[] ss;
+      }
+      if (value.attr_type() != TEXTS) {
+        writer_->writen(value.to_string().c_str(), value.to_string().size());
+      }
+
+      if (last_values.size() == (size_t)cell_num)
+        last_values[i] = value;
+      else
+        last_values.push_back(value);
+    }
+    return RC::SUCCESS;
+    
+    writer_->writen("\n", 1);
+  }
+  
+  return rc;
+}
+
 RC PlainCommunicator::write_result_internal(SessionEvent *event, bool &need_disconnect)
 {
   RC rc = RC::SUCCESS;
@@ -199,7 +257,7 @@ RC PlainCommunicator::write_result_internal(SessionEvent *event, bool &need_disc
     return write_state(event, need_disconnect);
   }
 
-  const TupleSchema &schema   = sql_result->tuple_schema();
+  const TupleSchema &schema   = const_cast<TupleSchema &>(sql_result->tuple_schema());
   const int          cell_num = schema.cell_num();
 
   for (int i = 0; i < cell_num; i++) {
@@ -237,6 +295,16 @@ RC PlainCommunicator::write_result_internal(SessionEvent *event, bool &need_disc
       return rc;
     }
   }
+
+  // rc = write_tuple(sql_result);
+  // if (rc == RC::RECORD_EOF) {
+  //   rc = RC::SUCCESS;
+  // } else {
+  //   LOG_WARN("write tuple failed: %s", strrc(rc));
+  //   sql_result->close();
+  //   sql_result->set_return_code(rc);
+  //   return write_state(event, need_disconnect);
+  // }
 
   rc = RC::SUCCESS;
 
@@ -286,6 +354,11 @@ RC PlainCommunicator::write_result_internal(SessionEvent *event, bool &need_disc
 
   if (rc == RC::RECORD_EOF) {
     rc = RC::SUCCESS;
+  }else {
+    LOG_WARN("write tuple failed: %s", strrc(rc));
+    sql_result->close();
+    sql_result->set_return_code(rc);
+    return write_state(event, need_disconnect);
   }
 
   if (cell_num == 0) {

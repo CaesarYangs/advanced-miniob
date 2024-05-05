@@ -42,6 +42,8 @@ public:
   int         offset() const;
   int         len() const;
   bool        visible() const;
+  bool match(Value &value) const;
+  bool match(const Value &value) const;
 
 public:
   void desc(std::ostream &os) const;

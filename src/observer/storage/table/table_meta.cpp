@@ -19,6 +19,8 @@ See the Mulan PSL v2 for more details. */
 #include "storage/table/table_meta.h"
 #include "storage/trx/trx.h"
 #include "json/json.h"
+#include "sql/parser/parse.h"
+
 
 using namespace std;
 
@@ -76,7 +78,10 @@ RC TableMeta::init(int32_t table_id, const char *name, int field_num, const Attr
   }
 
   for (int i = 0; i < field_num; i++) {
-    const AttrInfoSqlNode &attr_info = attributes[i];
+    AttrInfoSqlNode attr_info = attributes[i];
+    if (attr_info.type == TEXTS) {
+      attr_info.length = sizeof(RID);
+    }
     rc                               = fields_[i + trx_field_num].init(
         attr_info.name.c_str(), attr_info.type, field_offset, attr_info.length, true /*visible*/);
     if (rc != RC::SUCCESS) {

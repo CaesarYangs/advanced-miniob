@@ -30,6 +30,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/trx/trx.h"
 #include "storage/field/field.h"
 
+RC make_text_value(RecordFileHandler *record_handler, Value &value);
 Table::~Table()
 {
   if (record_handler_ != nullptr) {
@@ -244,8 +245,9 @@ RC Table::insert_record(Record &record)
   if (rc != RC::SUCCESS) {
     LOG_ERROR("Insert record failed. table name=%s, rc=%s", table_meta_.name(), strrc(rc));
     return rc;
+  }else{
+      LOG_TRACE("Insert record FILEHandler insert_record agin!!!!!!!!!))))))))))=>>");
   }
-
   rc = insert_entry_of_indexes(record.data(), record.rid());
   if (rc != RC::SUCCESS) {  // 可能出现了键值重复
     RC rc2 = delete_entry_of_indexes(record.data(), record.rid(), false /*error_on_not_exists*/);
@@ -335,23 +337,47 @@ RC Table::make_record(int value_num, const Value *values, Record &record)
                   field->name(), field->type(), value.attr_type());
         return RC::SCHEMA_FIELD_TYPE_MISMATCH;
       }
-  }
+      }
+      if (!field->match(value)) {
+      LOG_ERROR("Invalid value type. table name=%s, field name=%s, type=%d, but given=%d",
+                table_meta_.name(), field->name(), field->type(), value.attr_type());
+      return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+    }else{
+      LOG_TRACE("Insert record. make_record))))))))))=>>>%s",value.get_string());
+    }
   }
 
   // 复制所有字段的值
   int   record_size = table_meta_.record_size();
   char *record_data = (char *)malloc(record_size);
 
+  //int column = table_meta_.field_num();
+
   for (int i = 0; i < value_num; i++) {
     const FieldMeta *field    = table_meta_.field(i + normal_field_start_index);
-    const Value     &value    = values[i];
+    Value &value = const_cast<Value &>(values[i]);
+// 如果是字符串类型，则拷贝字符串的len + 1字节。
+    if (value.attr_type() == TEXTS) {
+      if (value.get_string().length() > 65535) {
+        return RC::TEXT_OVERFLOW;
+      }
+      handle_text_value(record_handler_, value); //如果现在的字段是text,那么立马进行插入,并且将value的值变成rid指针
+      record.add_offset_text(field->offset());
+      record.set_if_text();
+    }
+
+
     size_t           copy_len = field->len();
     if (field->type() == CHARS) {
       const size_t data_len = value.length();
       if (copy_len > data_len) {
         copy_len = data_len + 1;
       }
+      if (field->type() == TEXTS) {
+        copy_len = sizeof(RID); //拷贝RID大小，因为data就是RID
+      }
     }
+    
     memcpy(record_data + field->offset(), value.data(), copy_len);
   }
 
@@ -523,6 +549,7 @@ RC Table::update_record(Record &record, Field *field, const Value *value)
 
   // main update section
   rc = record_handler_->update_record(&record.rid(), record, field, value);
+  // RC update_record(const char *data, int record_size, const RID *rid);
 
   // 更新索引
   if (rc == RC::SUCCESS) {
@@ -598,5 +625,54 @@ RC Table::sync()
     }
   }
   LOG_INFO("Sync table over. table=%s", name());
+  return rc;
+}
+
+RC handle_text_value(RecordFileHandler *record_handler, Value &value) 
+{
+  RC rc = RC::SUCCESS;
+  int MAX_SIZE = 8000; //记录存储的最大值
+  char *datass = new char[value.text_data().length() + 1]; //Text的总长度
+  strcpy(datass, value.text_data().c_str());
+  const char *end = datass + value.text_data().length();  //从后往前存，加上一个本身的长度到达字符串末尾
+
+  RID *rid = new RID; //最后的空指针
+  while (end - datass > MAX_SIZE) {
+    RID *new_rid = new RID;
+    rc = record_handler->insert_text_record(end - MAX_SIZE, MAX_SIZE, new_rid); //存进一个record中
+
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("Insert text chunk failed: %s", strrc(rc));
+      return rc;
+    }else{
+      LOG_TRACE("Insert record.))))))))))=>>>%s",value.text_data());
+      return rc;
+    }
+
+    if (rid->init == true) {
+      new_rid->next_RID = rid;
+    }
+    rid = new_rid;
+
+    end -= MAX_SIZE;
+  }
+
+  RID *rid_last = new RID;
+  rc = record_handler->insert_text_record(datass, end - datass, rid_last); //将最后剩下的存进去
+  if (rc != RC::SUCCESS) {
+      LOG_ERROR("Insert text chunk failed: %s", strrc(rc));
+      return rc;
+    }else{
+      LOG_TRACE("Insert record  handle_text_value))))))))))=>>>%s",datass);
+    }
+
+  if (rid->init == true) {
+    rid_last->next_RID = rid; 
+  }
+  rid = rid_last; //存放链表头
+  rid->text_value = value.text_data().length();
+  value.set_data(reinterpret_cast<char *>(rid),sizeof(RID)); //将vaule的data设置成指针地址
+
+  delete[] datass;
   return rc;
 }

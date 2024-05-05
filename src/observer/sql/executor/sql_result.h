@@ -40,7 +40,10 @@ public:
   void set_state_string(const std::string &state_string) { state_string_ = state_string; }
 
   void set_operator(std::unique_ptr<PhysicalOperator> oper);
-
+std::unique_ptr<PhysicalOperator> &get_operator() 
+  {
+    return operator_;
+  }
   bool               has_operator() const { return operator_ != nullptr; }
   const TupleSchema &tuple_schema() const { return tuple_schema_; }
   RC                 return_code() const { return return_code_; }
@@ -49,7 +52,8 @@ public:
   RC open();
   RC close();
   RC next_tuple(Tuple *&tuple);
-
+  
+bool correlated_query_;
 private:
   Session                          *session_ = nullptr;  ///< 当前所属会话
   std::unique_ptr<PhysicalOperator> operator_;           ///< 执行计划
