@@ -20,6 +20,8 @@ See the Mulan PSL v2 for more details. */
 
 #include "sql/parser/value.h"
 
+#define MAX_NUM 20
+
 class Expression;
 
 /**
@@ -179,9 +181,11 @@ struct DropTableSqlNode
  */
 struct CreateIndexSqlNode
 {
-  std::string index_name;      ///< Index name
-  std::string relation_name;   ///< Relation name
-  std::string attribute_name;  ///< Attribute name
+  std::string              index_name;       ///< Index name
+  std::string              relation_name;    ///< Relation name
+  std::vector<std::string> attribute_names;  ///< Attribute name, use vector in storage
+  int                      is_unique;        ///< whether is unique index
+  // std::string attribute_name;  ///< Attribute name
 };
 
 /**
@@ -267,6 +271,7 @@ enum SqlCommandFlag
   SCF_CREATE_TABLE,
   SCF_DROP_TABLE,
   SCF_CREATE_INDEX,
+  SCF_CREATE_UNIQUE_INDEX,
   SCF_DROP_INDEX,
   SCF_SYNC,
   SCF_SHOW_TABLES,

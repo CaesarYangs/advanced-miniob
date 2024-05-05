@@ -13,6 +13,7 @@ See the Mulan PSL v2 for more details. */
 //
 
 #include "common/defs.h"
+#include "common/log/log.h"
 #include <algorithm>
 #include <string.h>
 
@@ -22,6 +23,7 @@ int compare_int(void *arg1, void *arg2)
 {
   int v1 = *(int *)arg1;
   int v2 = *(int *)arg2;
+  LOG_DEBUG("[[[compare_int]]] value1:%d, value2:%d",v1,v2);
   if (v1 > v2) {
     return 1;
   } else if (v1 < v2) {

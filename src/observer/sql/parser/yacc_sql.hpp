@@ -1,4 +1,4 @@
-/* A Bison parser, made by GNU Bison 3.8.  */
+/* A Bison parser, made by GNU Bison 3.8.2.  */
 
 /* Bison interface for Yacc-like parsers in C
 
@@ -59,6 +59,7 @@ extern int yydebug;
     DROP = 260,                    /* DROP  */
     TABLE = 261,                   /* TABLE  */
     TABLES = 262,                  /* TABLES  */
+<<<<<<< HEAD
     INDEX = 263,                   /* INDEX  */
     CALC = 264,                    /* CALC  */
     SELECT = 265,                  /* SELECT  */
@@ -77,6 +78,26 @@ extern int yydebug;
     INT_T = 278,                   /* INT_T  */
     DATE_T = 279,                  /* DATE_T  */
     TEXT_T = 280,                  /* TEXT_T  */
+=======
+    UNIQUE = 263,                  /* UNIQUE  */
+    INDEX = 264,                   /* INDEX  */
+    CALC = 265,                    /* CALC  */
+    SELECT = 266,                  /* SELECT  */
+    DESC = 267,                    /* DESC  */
+    SHOW = 268,                    /* SHOW  */
+    SYNC = 269,                    /* SYNC  */
+    INSERT = 270,                  /* INSERT  */
+    DELETE = 271,                  /* DELETE  */
+    UPDATE = 272,                  /* UPDATE  */
+    LBRACE = 273,                  /* LBRACE  */
+    RBRACE = 274,                  /* RBRACE  */
+    COMMA = 275,                   /* COMMA  */
+    TRX_BEGIN = 276,               /* TRX_BEGIN  */
+    TRX_COMMIT = 277,              /* TRX_COMMIT  */
+    TRX_ROLLBACK = 278,            /* TRX_ROLLBACK  */
+    INT_T = 279,                   /* INT_T  */
+    DATE_T = 280,                  /* DATE_T  */
+>>>>>>> dev_layer2_merge
     STRING_T = 281,                /* STRING_T  */
     FLOAT_T = 282,                 /* FLOAT_T  */
     HELP = 283,                    /* HELP  */
@@ -124,14 +145,20 @@ union YYSTYPE
   Expression *                      expression;
   std::vector<Expression *> *       expression_list;
   std::vector<Value> *              value_list;
+  std::vector<std::string> *        id_list;
   std::vector<ConditionSqlNode> *   condition_list;
   std::vector<RelAttrSqlNode> *     rel_attr_list;
   std::vector<std::string> *        relation_list;
   char *                            string;
   int                               number;
+  int opt_unique;
   float                             floats;
 
+<<<<<<< HEAD
 #line 135 "yacc_sql.hpp"
+=======
+#line 137 "yacc_sql.hpp"
+>>>>>>> dev_layer2_merge
 
 };
 typedef union YYSTYPE YYSTYPE;

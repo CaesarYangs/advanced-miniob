@@ -58,6 +58,7 @@ struct RID
 
   static int compare(const RID *rid1, const RID *rid2)
   {
+    LOG_DEBUG("[[[[[[[[[[[[[[[[static int compare]]]]]]]]]]]]]]]] rid1:%s, rid2:%s",rid1->to_string().c_str(),rid2->to_string().c_str());
     int page_diff = rid1->page_num - rid2->page_num;
     if (page_diff != 0) {
       return page_diff;
@@ -65,6 +66,9 @@ struct RID
       return rid1->slot_num - rid2->slot_num;
     }
   }
+
+  // 用于对id类型大小在B+ Tree中进行比较操作
+  static int compare_int(const int &a, const int &b) { return a - b; }
 
   bool set_overflow_rid(RID *rid) {
     if (rid == nullptr) {
