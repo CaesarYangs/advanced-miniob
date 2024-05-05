@@ -30,6 +30,8 @@ See the Mulan PSL v2 for more details. */
 #include "storage/trx/trx.h"
 #include "storage/field/field.h"
 
+RC handle_text_value(RecordFileHandler *record_handler, Value &value);
+
 RC make_text_value(RecordFileHandler *record_handler, Value &value);
 Table::~Table()
 {
