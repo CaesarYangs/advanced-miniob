@@ -99,11 +99,17 @@ extern int yydebug;
     LE = 300,                      /* LE  */
     GE = 301,                      /* GE  */
     NE = 302,                      /* NE  */
-    NUMBER = 303,                  /* NUMBER  */
-    FLOAT = 304,                   /* FLOAT  */
-    ID = 305,                      /* ID  */
-    SSS = 306,                     /* SSS  */
-    UMINUS = 307                   /* UMINUS  */
+    SUM = 303,                     /* SUM  */
+    COUNT = 304,                   /* COUNT  */
+    AVG = 305,                     /* AVG  */
+    MIN = 306,                     /* MIN  */
+    MAX = 307,                     /* MAX  */
+    NUMBER = 308,                  /* NUMBER  */
+    FLOAT = 309,                   /* FLOAT  */
+    ID = 310,                      /* ID  */
+    AGGRE_ATTR = 311,              /* AGGRE_ATTR  */
+    SSS = 312,                     /* SSS  */
+    UMINUS = 313                   /* UMINUS  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -112,12 +118,14 @@ extern int yydebug;
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 104 "yacc_sql.y"
+#line 109 "yacc_sql.y"
 
   ParsedSqlNode *                   sql_node;
   ConditionSqlNode *                condition;
   Value *                           value;
   enum CompOp                       comp;
+  enum AggreType                    aggre_type; 
+  AggreTypeNode *                   aggre_node;
   RelAttrSqlNode *                  rel_attr;
   std::vector<AttrInfoSqlNode> *    attr_infos;
   AttrInfoSqlNode *                 attr_info;
@@ -128,12 +136,13 @@ union YYSTYPE
   std::vector<ConditionSqlNode> *   condition_list;
   std::vector<RelAttrSqlNode> *     rel_attr_list;
   std::vector<std::string> *        relation_list;
+  std::vector<std::string> *        aggre_attr_list;
   char *                            string;
   int                               number;
   int opt_unique;
   float                             floats;
 
-#line 137 "yacc_sql.hpp"
+#line 146 "yacc_sql.hpp"
 
 };
 typedef union YYSTYPE YYSTYPE;

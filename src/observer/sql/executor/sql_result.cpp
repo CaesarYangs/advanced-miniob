@@ -17,6 +17,8 @@ See the Mulan PSL v2 for more details. */
 #include "common/rc.h"
 #include "session/session.h"
 #include "storage/trx/trx.h"
+#include "sql/expr/tuple.h"
+#include "sql/parser/parse_defs.h"
 
 SqlResult::SqlResult(Session *session) : session_(session) {}
 
@@ -66,6 +68,37 @@ RC SqlResult::next_tuple(Tuple *&tuple)
   }
 
   tuple = operator_->current_tuple();
+  if (auto x = dynamic_cast<ProjectTuple *>(tuple)) {
+    if (!x->is_aggregation()) {
+      return RC::SUCCESS;
+    }
+
+    int  cell_num        = tuple->cell_num();
+    auto tuple_cell_spec = x->get_tuple_cell_spec();
+    do {
+      if (aggre_calcs.size() == 0) {  // 初始化当前aggre_calcs
+        for (size_t i = 0; i < cell_num; i++) {
+          Value value;
+          rc = tuple->cell_at(i, value);
+          aggre_calcs.push_back(AggreCalc{tuple_cell_spec[i]->aggre_type(), value});
+        }
+      } else {
+        for (size_t i = 0; i < cell_num; i++) {
+          Value value;
+          rc = tuple->cell_at(i, value);
+          aggre_calcs[i].update(value);
+        }
+      }
+    } while (RC::SUCCESS == operator_->next());
+
+    std::vector<Value> values;
+    for (size_t i = 0; i < cell_num; i++) {
+      values.push_back(aggre_calcs[i].get_value());
+    }
+    auto list_tuple = new ValueListTuple;
+    list_tuple->set_cells(values);
+    tuple = list_tuple;
+  }
   return rc;
 }
 

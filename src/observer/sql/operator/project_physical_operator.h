@@ -14,6 +14,7 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
+#include "storage/field/field.h"
 #include "sql/operator/physical_operator.h"
 
 /**
@@ -29,6 +30,7 @@ public:
 
   void add_expressions(std::vector<std::unique_ptr<Expression>> &&expressions) {}
   void add_projection(const Table *table, const FieldMeta *field);
+  void add_projection(const Field &field);
 
   PhysicalOperatorType type() const override { return PhysicalOperatorType::PROJECT; }
 

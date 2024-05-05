@@ -17,6 +17,7 @@ See the Mulan PSL v2 for more details. */
 
 #include "sql/executor/execute_stage.h"
 
+#include "sql/parser/parse_defs.h"
 #include "common/log/log.h"
 #include "event/session_event.h"
 #include "event/sql_event.h"
@@ -70,10 +71,19 @@ RC ExecuteStage::handle_request_with_physical_operator(SQLStageEvent *sql_event)
       bool        with_table_name = select_stmt->tables().size() > 1;
 
       for (const Field &field : select_stmt->query_fields()) {
-        if (with_table_name) {
-          schema.append_cell(field.table_name(), field.field_name());
-        } else {
-          schema.append_cell(field.field_name());
+        auto aggre_type = field.aggre_type();
+        switch (aggre_type) {
+          case AGGRE_NONE: {
+            if (with_table_name) {
+              schema.append_cell(field.table_name(), field.field_name());
+            } else {
+              schema.append_cell(field.field_name());
+            }
+          } break;
+          default: {  // aggre name
+            const std::string aggre_name = aggreType2str(aggre_type) + "(" + field.alias() + ")";
+            schema.append_cell(aggre_name.c_str());
+          }
         }
       }
     } break;
