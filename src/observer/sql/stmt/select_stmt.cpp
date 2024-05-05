@@ -40,7 +40,7 @@ static void wildcard_fields(Table *table, std::vector<Field> &field_metas)
 }
 
 /**
- * @description: 解析要查询到字段, 转换到Field中去
+ * @description: 将sql中select字段的关键信息：表名，字段，在哪个字段上做聚集进行包装并转化到Field对象中
  * @return {RC} 查询的状况
  */
 static RC get_fields(bool is_aggre, std::vector<Field> &query_fields, const std::vector<RelAttrSqlNode> &attributes,
@@ -64,14 +64,15 @@ static RC get_fields(bool is_aggre, std::vector<Field> &query_fields, const std:
       // 如果列名不等于1, 则错误
 
       if (attr_name == "*") {
+        // 只有count(*)允许存在
         if (aggre_type != AGGRE_COUNT) {
           LOG_WARN("Aggregation type %s cannot match parameters '*'", aggreType2str(aggre_type).c_str());
           return RC::INTERNAL;
-        } else {  // COUNT(*) 的情况, 默认为第一列
-          field_meta = table->table_meta().field(0);
         }
+        field_meta = table->table_meta().field(0); // 默认在第一列做count(*)
       } else {
-        if (nullptr == field_meta) {  // 查询的列名不存在
+        // 查询的列名不存在
+        if (nullptr == field_meta) {  
           LOG_WARN("no such field. field=%s.%s.%s", db->name(), table->name(), attr_name.c_str());
           return RC::SCHEMA_FIELD_MISSING;
         }
@@ -135,6 +136,9 @@ static RC get_fields(bool is_aggre, std::vector<Field> &query_fields, const std:
 
 RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt)
 {
+  // 主要修改部分——主要修改select的实现逻辑
+  // new select stmt with the implementation of aggregation function
+
   if (nullptr == db) {
     LOG_WARN("invalid argument. db is null");
     return RC::INVALID_ARGUMENT;
@@ -144,12 +148,14 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt)
   std::vector<Table *>                     tables;
   std::unordered_map<std::string, Table *> table_map;
   for (size_t i = 0; i < select_sql.relations.size(); i++) {
+    // is table name valid
     const char *table_name = select_sql.relations[i].c_str();
     if (nullptr == table_name) {
-      LOG_WARN("invalid argument. relation name is null. index=%d", i);
+      LOG_WARN("invalid table name. name index=%d", i);
       return RC::INVALID_ARGUMENT;
     }
 
+    // is table existed
     Table *table = db->find_table(table_name);
     if (nullptr == table) {
       LOG_WARN("no such table. db=%s, table_name=%s", db->name(), table_name);
@@ -157,33 +163,34 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt)
     }
 
     tables.push_back(table);
-    table_map.insert(std::pair<std::string, Table *>(table_name, table));
+    table_map.insert(std::pair<std::string, Table *>(table_name, table)); //用map作为存储介质
   }
 
   auto &attributes = select_sql.attributes;
-  // attributes是否合法
   size_t aggregation_num = 0;
   for (auto &attribute : attributes) {
     if (attribute.aggretion_node.aggre_type != AGGRE_NONE) {
       aggregation_num++;
     }
   }
+
+  // is attributes valid
   if (aggregation_num != 0 && aggregation_num != attributes.size()) {
-    LOG_WARN("fields type err");
+    LOG_WARN("Aggregation field error");
     return RC::INTERNAL;
   }
 
   // get the fields (table_meta, (table_name, col_name))
-  std::vector<Field> query_fields;
-  auto rc = get_fields(static_cast<bool>(aggregation_num), query_fields, attributes, table_map, tables, db);
+  // 全部的关键信息都被存储到query_fields中，包括对每个字段上是否进行agg，进行何种agg，都存储起来，并准备下一步操作
+  std::vector<Field> query_fields;  
+  RC rc = get_fields(static_cast<bool>(aggregation_num), query_fields, attributes, table_map, tables, db);
   if (rc != RC::SUCCESS) {
     LOG_WARN("cannot construct filter stmt");
     return rc;
-  } else {
-    LOG_INFO("got %d tables in from stmt and %d fields in query stmt", tables.size(), query_fields.size());
   }
 
-  // ---------
+  // success get all tables, query fields and clauses
+  LOG_INFO("Got %d tables in FROM stmt and %d fields in QUERY stmt", tables.size(), query_fields.size());
 
   Table *default_table = nullptr;
   if (tables.size() == 1) {

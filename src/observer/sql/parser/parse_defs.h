@@ -377,11 +377,12 @@ class AggreCalc
 {
   using date = int32_t;
   // 每次执行更新操作 `count` 更新一次, 便于求avg的值
-  // 求 avg 和 sum都统一更新sum
+  // 求 avg 和 sum 都统一更新sum,随后再按照求的内容更新对应的值
 
 public:
   AggreCalc() = delete;
   // AggreType: MIN, MAX, AVG, COUNT, SUM
+  // 最初的初始化阶段，将计算好的值存储到对应的位置中，AVG值动态获取
   AggreCalc(AggreType aggre_type, Value value) : aggre_type_(aggre_type), value_(value)
   {
     attr_type_ = value.attr_type();
@@ -417,6 +418,7 @@ public:
     }
   }
 
+  // 每次调用update都更新一次
   void update(Value value)
   {
     i_count++;
@@ -451,6 +453,7 @@ public:
     }
   }
 
+  // 如果没有修改值，则每次select动态从这个里面获取
   const Value get_value()
   {
     if (aggre_type_ == AGGRE_COUNT)
@@ -464,13 +467,6 @@ public:
           default: break;
         }
       } break;
-      case DATES: {
-        switch (aggre_type_) {
-          case AGGRE_MAX: value_.set_date(d_max); break;
-          case AGGRE_MIN: value_.set_date(d_min); break;
-          default: break;
-        }
-      } break;
       case INTS: {
         switch (aggre_type_) {
           case AGGRE_MAX: value_.set_int(i_max); break;
@@ -478,7 +474,8 @@ public:
           case AGGRE_AVG: {
             if (i_sum % i_count == 0) {
               value_.set_int(i_sum / i_count);
-            } else {  // 如果结果为小数, 需要转化为FLOAT类型的value
+            } else {  
+              // 如果结果为小数, 需要转化为FLOAT类型的value
               value_.set_type(FLOATS);
               value_.set_float(static_cast<float>(i_sum) / i_count);
             }
@@ -507,9 +504,6 @@ private:
   AttrType    attr_type_;
   std::string s_min;
   std::string s_max;
-
-  date d_min;
-  date d_max;
 
   int       i_max{INT_MIN};
   int       i_min{INT_MAX};
