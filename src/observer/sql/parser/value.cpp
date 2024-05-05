@@ -18,8 +18,10 @@ See the Mulan PSL v2 for more details. */
 #include "sql/parser/date.h"
 #include "common/log/log.h"
 #include <sstream>
+#include <cstring>
 
-const char *ATTR_TYPE_NAME[] = {"undefined", "chars", "ints", "dates", "floats", "booleans"};
+const char *ATTR_TYPE_NAME[] = {"undefined", "chars", "ints", "dates", "floats", "texts","booleans"};
+
 
 const char *attr_type_to_string(AttrType type)
 {
@@ -70,6 +72,10 @@ void Value::set_data(char *data, int length)
       num_value_.bool_value_ = *(int *)data != 0;
       length_                = length;
     } break;
+    case TEXTS: {
+      set_text(data,length);
+      length_ = length;
+  } break;
     default: {
       LOG_WARN("unknown data type: %d", attr_type_);
     } break;
@@ -87,6 +93,7 @@ void Value::set_float(float val)
   attr_type_              = FLOATS;
   num_value_.float_value_ = val;
   length_                 = sizeof(val);
+  str_value_.clear();
 }
 
 void Value::set_date(Date date) {
@@ -112,6 +119,14 @@ void Value::set_string(const char *s, int len /*= 0*/)
   length_ = str_value_.length();
 }
 
+
+void Value::set_text(const char *s, int len /*= 0*/)
+{
+  attr_type_ = TEXTS;
+  str_value_.assign(s, len);
+  length_ = str_value_.length();
+}
+
 void Value::set_value(const Value &value)
 {
   switch (value.attr_type_) {
@@ -130,6 +145,9 @@ void Value::set_value(const Value &value)
     case BOOLEANS: {
       set_boolean(value.get_boolean());
     } break;
+    case TEXTS: {
+      set_text(value.get_string().c_str());
+    } break;
     case UNDEFINED: {
       ASSERT(false, "got an invalid value type");
     } break;
@@ -139,6 +157,7 @@ void Value::set_value(const Value &value)
 const char *Value::data() const
 {
   switch (attr_type_) {
+    case TEXTS:
     case CHARS: {
       return str_value_.c_str();
     } break;
@@ -164,6 +183,10 @@ std::string Value::to_string() const
     case BOOLEANS: {
       os << num_value_.bool_value_;
     } break;
+    case TEXTS:
+    {
+      os << str_value_;
+    } break;
     case CHARS: {
       os << str_value_;
     } break;
@@ -178,6 +201,7 @@ int Value::compare(const Value &other) const
 {
   if (this->attr_type_ == other.attr_type_) {
     switch (this->attr_type_) {
+      
       case INTS: {
         return common::compare_int((void *)&this->num_value_.int_value_, (void *)&other.num_value_.int_value_);
       } break;
@@ -220,6 +244,7 @@ int Value::compare(const Value &other) const
 int Value::get_int() const
 {
   switch (attr_type_) {
+    case TEXTS:
     case CHARS: {
       try {
         return (int)(std::stol(str_value_));
@@ -248,6 +273,7 @@ int Value::get_int() const
 float Value::get_float() const
 {
   switch (attr_type_) {
+    case TEXTS:
     case CHARS: {
       try {
         return std::stof(str_value_);
@@ -275,9 +301,16 @@ float Value::get_float() const
 
 std::string Value::get_string() const { return this->to_string(); }
 
+// char *Value::get_fiexed_string() const {
+//   std::memset((void *)num_value_.str_value_, 0, 4);
+//   std::strncpy((char *)num_value_.str_value_, str_value_.c_str(), 4);
+//   return (char *)num_value_.str_value_;
+// }
+
 bool Value::get_boolean() const
 {
   switch (attr_type_) {
+    case TEXTS:
     case CHARS: {
       try {
         float val = std::stof(str_value_);
@@ -335,6 +368,10 @@ bool Value::convert(AttrType from, AttrType to, Value &value) {
     value.set_int(value.get_int());
     return true;
   }
+  if (from == CHARS && to == TEXTS) {
+    value.set_text(value.get_string().c_str());
+    return true;
+  }
   return false;
 }
 
@@ -343,5 +380,24 @@ Date Value::get_date() const {
   case DATES: return num_value_.date_value_;
   case CHARS: return Date(str_value_);
   default: return Date(-1);
+  }
+}
+
+bool is_float(const std::string& str) {
+  try {
+    size_t pos; // 用于保存解析后的位置
+    std::stof(str, &pos); 
+
+    // 检查是否解析了整个字符串
+    if (pos == str.size()) {
+        return true;
+    } else {
+        return false;
+    }
+
+  } catch (const std::invalid_argument& e) {
+    return false; 
+  } catch (const std::out_of_range& e) {
+    return false; 
   }
 }

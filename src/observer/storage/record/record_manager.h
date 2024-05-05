@@ -62,6 +62,12 @@ class Field;
  * 从这个页头描述的信息来看，当前仅支持定长行/记录。如果要支持变长记录，
  * 或者超长（超出一页）的记录，这么做是不合适的。
  */
+
+struct RecordDirectoryEntry {
+  RID location;
+
+};
+
 struct PageHeader
 {
   int32_t record_num;           ///< 当前页面记录的个数
@@ -69,6 +75,7 @@ struct PageHeader
   int32_t record_size;          ///< 每条记录占用实际空间大小(可能对齐)
   int32_t record_capacity;      ///< 最大记录个数
   int32_t first_record_offset;  ///< 第一条记录的偏移量
+  std::map<SlotNum,int> text_length;  ///< 变长数据的长度
 };
 
 /**
@@ -168,6 +175,9 @@ public:
    */
   RC insert_record(const char *data, RID *rid);
 
+  RC update_record(const char *data, const RID *rid);
+  RC insert_text_record(const char *data, size_t len, RID *rid);
+
   /**
    * @brief 更新一条记录
    *
@@ -208,6 +218,10 @@ public:
    * @brief 当前页面是否已经没有空闲位置插入新的记录
    */
   bool is_full() const;
+
+  bool if_text() const {
+    return frame_->get_text();
+  }
 
 protected:
   /**
@@ -258,6 +272,8 @@ public:
   RecordFileHandler() = default;
   ~RecordFileHandler();
 
+
+std::map<PageNum, int> overflow_pages;
   /**
    * @brief 初始化
    *
@@ -276,8 +292,14 @@ public:
    * @param rid 待删除记录的标识符
    */
   RC delete_record(const RID *rid);
-
+  
+/**
+   * @brief 从指定文件中更新指定槽位的记录
+   * @param data        纪录内容
+   * @param rid 待更新记录的标识符
+   */
   RC update_record(const RID *rid,Record &record, Field *field, const Value *value);
+  RC update_record(const char *data, int record_size, const RID *rid);
 
   /**
    * @brief 插入一个新的记录到指定文件中，并返回该记录的标识符
@@ -287,6 +309,8 @@ public:
    * @param rid         返回该记录的标识符
    */
   RC insert_record(const char *data, int record_size, RID *rid);
+
+   RC insert_text_record(const char *data, size_t record_size, RID *rid);
 
   /**
    * @brief 数据库恢复时，在指定文件指定位置插入数据
@@ -382,6 +406,10 @@ private:
    * @brief 获取一个页面内的下一条记录
    */
   RC fetch_next_record_in_page();
+  
+  bool if_text() {
+    return record_page_handler_.if_text();
+  }
 
 private:
   // TODO 对于一个纯粹的record遍历器来说，不应该关心表和事务

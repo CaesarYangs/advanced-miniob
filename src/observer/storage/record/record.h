@@ -26,6 +26,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/index/index_meta.h"
 
 class Field;
+class Table;
 
 /**
  * @brief 标识一个记录的位置
@@ -35,6 +36,11 @@ struct RID
 {
   PageNum page_num;  // record's page number
   SlotNum slot_num;  // record's slot number
+
+  RID    *next_RID = nullptr;
+  bool    init = false;
+  size_t  over_len;
+  size_t  text_value = 0;
 
   RID() = default;
   RID(const PageNum _page_num, const SlotNum _slot_num) : page_num(_page_num), slot_num(_slot_num) {}
@@ -63,6 +69,18 @@ struct RID
 
   // 用于对id类型大小在B+ Tree中进行比较操作
   static int compare_int(const int &a, const int &b) { return a - b; }
+
+  bool set_overflow_rid(RID *rid) {
+    if (rid == nullptr) {
+      return false;
+    }
+    next_RID = rid;
+    return true;
+  }
+
+  RID *get_overflow_rid() {
+    return next_RID;
+  }
 
   /**
    * 返回一个不可能出现的最小的RID
@@ -99,8 +117,10 @@ public:
   ~Record()
   {
     if (owner_ && data_ != nullptr) {
-      free(data_);
-      data_ = nullptr;
+     if (!if_text_){
+         free(data_);
+        data_ = nullptr;
+      }
     }
   }
 
@@ -138,7 +158,7 @@ public:
   void set_data_owner(char *data, int len)
   {
     ASSERT(len != 0, "the len of data should not be 0");
-    this->~Record();
+    //this->~Record();
 
     this->data_  = data;
     this->len_   = len;
@@ -148,6 +168,26 @@ public:
   char       *data() { return this->data_; }
   const char *data() const { return this->data_; }
   int         len() const { return this->len_; }
+
+  void set_owner() {
+    owner_ = true;
+  }
+  void reset_owner() {
+    owner_ = false;
+  }
+  void set_if_text() {
+    if_text_ =true;
+  }
+  bool get_if_text() const{
+    return if_text_;
+  }
+  void add_offset_text(int v) {
+    offset_text.push_back(v);
+  }
+  std::vector<size_t> get_offset_text() const {
+    return offset_text;
+  }
+
 
   void set_rid(const RID &rid) { this->rid_ = rid; }
   void set_rid(const PageNum page_num, const SlotNum slot_num)
@@ -164,4 +204,6 @@ private:
   char *data_  = nullptr;
   int   len_   = 0;      /// 如果不是record自己来管理内存，这个字段可能是无效的
   bool  owner_ = false;  /// 表示当前是否由record来管理内存
+  bool  if_text_ =false;
+  std::vector<size_t> offset_text;
 };

@@ -32,4 +32,5 @@ private:
   Field       *field_ = nullptr;
   Trx         *trx_   = nullptr;
   char        *data_;
+  std::vector<const FieldMeta *> field_metas_;
 };
