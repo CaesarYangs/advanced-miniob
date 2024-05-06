@@ -28,6 +28,7 @@ static const Json::StaticString FIELD_TABLE_ID("table_id");
 static const Json::StaticString FIELD_TABLE_NAME("table_name");
 static const Json::StaticString FIELD_FIELDS("fields");
 static const Json::StaticString FIELD_INDEXES("indexes");
+static const Json::StaticString UNIQUE_INDEX("unique");
 
 TableMeta::TableMeta(const TableMeta &other)
     : table_id_(other.table_id_),
@@ -161,8 +162,21 @@ const IndexMeta *TableMeta::index(const char *name) const
 
 const IndexMeta *TableMeta::find_index_by_field(const char *field) const
 {
+  // for (const IndexMeta &index : indexes_) {
+  //   if (0 == strcmp(index.field(), field)) {
+  //     return &index;
+  //   }
+  // }
+  // return nullptr;
+  std::string field_name = field;
+  std::vector<std::string> fields;
+  fields.push_back(field_name);
+  return find_index_by_field(fields);
+}
+
+const IndexMeta *TableMeta::find_index_by_field(std::vector<std::string> field) const{
   for (const IndexMeta &index : indexes_) {
-    if (0 == strcmp(index.field(), field)) {
+    if (field == *index.fields()) {
       return &index;
     }
   }
@@ -310,4 +324,22 @@ void TableMeta::desc(std::ostream &os) const
     os << std::endl;
   }
   os << ')' << std::endl;
+}
+
+
+void TableMeta::show_index(std::ostream &os) const
+{
+  os << "TABLE"
+     << " | "
+     << "NON_UNIQUE"
+     << " | "
+     << "KEY_NAME"
+     << " | "
+     << "SQL_IN_INDEX"
+     << " | "
+     << "COLUMN_NAME" << std::endl;
+
+  for (const auto &index : indexes_) {
+    index.show(os);
+  }
 }

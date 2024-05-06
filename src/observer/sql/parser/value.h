@@ -19,7 +19,7 @@ See the Mulan PSL v2 for more details. */
 #include <set>
 #include <string>
 #include <vector>
-
+#include <limits>
 
 const int INVALID_COMPARE = std::numeric_limits<int>::min();
 /**

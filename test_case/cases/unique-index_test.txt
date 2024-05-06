@@ -17,14 +17,14 @@ INSERT INTO Customer VALUES(300001,'MARKOV PROCESS',10);
 FAILURE
 
 第二种情况：先插入重复数据，再在重复字段上创建唯一索引
-SELECT * FROM publisher WHERE id=100008;
+SELECT * FROM Publisher WHERE id=100008;
 id | name | nation
 100008 | Oxbow Books Limited | PRC
 
-INSERT INTO publisher VALUES(100008,'BeaGay Publications','PRC');
+INSERT INTO Publisher VALUES(100008,'BeaGay Publications','PRC');
 SUCCESS
 
-SELECT * FROM publisher WHERE id=100008;
+SELECT * FROM Publisher WHERE id=100008;
 id | name | nation
 100008 | Oxbow Books Limited | PRC
 100008 | BeaGay Publications | PRC
@@ -33,5 +33,5 @@ CREATE UNIQUE INDEX test_idx2 ON Publisher(id);
 FAILURE
 
 (删去重复数据)
-DELETE FROM publisher WHERE id=100008 AND name='BeaGay Publications';
+DELETE FROM Publisher WHERE id=100008 AND name='BeaGay Publications';
 SUCCESS

@@ -25,14 +25,18 @@ class BplusTreeIndex : public Index
 {
 public:
   BplusTreeIndex() = default;
+  BplusTreeIndex(int is_unique){is_unique_ = is_unique; index_handler_.set_unique(is_unique);};
   virtual ~BplusTreeIndex() noexcept;
 
-  RC create(const char *file_name, const IndexMeta &index_meta, const FieldMeta &field_meta);
-  RC open(const char *file_name, const IndexMeta &index_meta, const FieldMeta &field_meta);
+  // modify for multi index
+  RC create(const char *file_name, const IndexMeta &index_meta, std::vector<FieldMeta> field_meta);
+  RC open(const char *file_name, const IndexMeta &index_meta, std::vector<FieldMeta> &field_meta);
   RC close();
 
   RC insert_entry(const char *record, const RID *rid) override;
   RC delete_entry(const char *record, const RID *rid) override;
+
+  const int is_unique(){return is_unique_;};
 
   /**
    * 扫描指定范围的数据
@@ -44,6 +48,7 @@ public:
 
 private:
   bool             inited_ = false;
+  int              is_unique_;
   BplusTreeHandler index_handler_;
 };
 
