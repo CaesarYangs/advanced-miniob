@@ -87,7 +87,7 @@ bool FieldMeta::match(Value &value) const {
     if (value.get_string().size() > 65535) 
       return false;
     
-    value.set_text(value.get_string().c_str());
+    value.set_text(value.get_string().c_str(),value.get_string().length());
     value.set_text_f();
     return true;
   }

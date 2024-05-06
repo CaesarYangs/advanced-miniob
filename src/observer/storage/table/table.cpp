@@ -31,8 +31,6 @@ See the Mulan PSL v2 for more details. */
 #include "storage/field/field.h"
 
 RC handle_text_value(RecordFileHandler *record_handler, Value &value);
-
-RC make_text_value(RecordFileHandler *record_handler, Value &value);
 Table::~Table()
 {
   if (record_handler_ != nullptr) {
@@ -284,7 +282,11 @@ RC Table::visit_record(const RID &rid, bool readonly, std::function<void(Record 
 
 RC Table::get_record(const RID &rid, Record &record)
 {
-  const int record_size = table_meta_.record_size();
+  int record_size = table_meta_.record_size();
+  if (rid.init) {
+    LOG_TRACE("rid init))))))))))=>>>");
+    record_size = rid.over_len; 
+  }
   char     *record_data = (char *)malloc(record_size);
   ASSERT(nullptr != record_data, "failed to malloc memory. record data size=%d", record_size);
 
@@ -297,6 +299,8 @@ RC Table::get_record(const RID &rid, Record &record)
     free(record_data);
     LOG_WARN("failed to visit record. rid=%s, table=%s, rc=%s", rid.to_string().c_str(), name(), strrc(rc));
     return rc;
+  }else{
+    LOG_TRACE("get_text_record 11))))))))))=>>>");
   }
 
   record.set_data_owner(record_data, record_size);
@@ -792,13 +796,13 @@ RC handle_text_value(RecordFileHandler *record_handler, Value &value)
   RID *rid = new RID; //最后的空指针
   while (end - datass > MAX_SIZE) {
     RID *new_rid = new RID;
-    rc = record_handler->insert_text_record(end - MAX_SIZE, MAX_SIZE, new_rid); //存进一个record中
+    rc = record_handler->insert_text_record(end - MAX_SIZE,(size_t)MAX_SIZE, new_rid); //存进一个record中
 
     if (rc != RC::SUCCESS) {
       LOG_ERROR("Insert text chunk failed: %s", strrc(rc));
       return rc;
     }else{
-      LOG_TRACE("Insert record.))))))))))=>>>%s",value.text_data());
+      LOG_TRACE("Insert record.))))))))))=>>>%d",MAX_SIZE);
       return rc;
     }
 
@@ -811,12 +815,12 @@ RC handle_text_value(RecordFileHandler *record_handler, Value &value)
   }
 
   RID *rid_last = new RID;
-  rc = record_handler->insert_text_record(datass, end - datass, rid_last); //将最后剩下的存进去
+  rc = record_handler->insert_text_record(datass, (size_t)(end - datass), rid_last); //将最后剩下的存进去
   if (rc != RC::SUCCESS) {
       LOG_ERROR("Insert text chunk failed: %s", strrc(rc));
       return rc;
     }else{
-      LOG_TRACE("Insert record  handle_text_value))))))))))=>>>%s",datass);
+      LOG_TRACE("Insert record  handle_text_value text_data().length()))))))))))=>>>%d",value.text_data().length());
     }
 
   if (rid->init == true) {

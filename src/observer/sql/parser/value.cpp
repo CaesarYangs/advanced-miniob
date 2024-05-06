@@ -120,7 +120,7 @@ void Value::set_string(const char *s, int len /*= 0*/)
 }
 
 
-void Value::set_text(const char *s, int len /*= 0*/)
+void Value::set_text(const char *s, int len)
 {
   attr_type_ = TEXTS;
   str_value_.assign(s, len);
@@ -146,7 +146,7 @@ void Value::set_value(const Value &value)
       set_boolean(value.get_boolean());
     } break;
     case TEXTS: {
-      set_text(value.get_string().c_str());
+      set_text(value.get_string().c_str(),value.get_string().length());
     } break;
     case UNDEFINED: {
       ASSERT(false, "got an invalid value type");
@@ -369,7 +369,7 @@ bool Value::convert(AttrType from, AttrType to, Value &value) {
     return true;
   }
   if (from == CHARS && to == TEXTS) {
-    value.set_text(value.get_string().c_str());
+    value.set_text(value.get_string().c_str(),value.get_string().length());
     return true;
   }
   return false;
