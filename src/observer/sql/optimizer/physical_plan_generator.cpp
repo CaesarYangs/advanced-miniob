@@ -14,6 +14,7 @@ See the Mulan PSL v2 for more details. */
 
 #include <utility>
 
+#include "sql/parser/parse_defs.h"
 #include "common/log/log.h"
 #include "sql/expr/expression.h"
 #include "sql/operator/calc_logical_operator.h"
@@ -195,7 +196,7 @@ RC PhysicalPlanGenerator::create_plan(ProjectLogicalOperator &project_oper, uniq
   ProjectPhysicalOperator *project_operator = new ProjectPhysicalOperator;
   const vector<Field>     &project_fields   = project_oper.fields();
   for (const Field &field : project_fields) {
-    project_operator->add_projection(field.table(), field.meta());
+    project_operator->add_projection(field);
   }
 
   if (child_phy_oper) {

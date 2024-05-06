@@ -18,12 +18,15 @@ See the Mulan PSL v2 for more details. */
 #include <string>
 #include <vector>
 
+#include "sql/parser/parse_defs.h"
 #include "common/log/log.h"
 #include "sql/expr/expression.h"
 #include "sql/expr/tuple_cell.h"
 #include "sql/parser/parse.h"
 #include "sql/parser/value.h"
 #include "storage/record/record.h"
+#include "storage/field/field.h"
+#include "storage/field/field_meta.h"
 
 class Table;
 
@@ -145,6 +148,7 @@ public:
     }
   }
 
+public:
   int cell_num() const override { return speces_.size(); }
 
   RC cell_at(int index, Value &cell) const override
@@ -225,6 +229,7 @@ public:
   void add_cell_spec(TupleCellSpec *spec) { speces_.push_back(spec); }
   int  cell_num() const override { return speces_.size(); }
 
+public:
   RC cell_at(int index, Value &cell) const override
   {
     if (index < 0 || index >= static_cast<int>(speces_.size())) {
@@ -239,7 +244,9 @@ public:
   }
 
   RC find_cell(const TupleCellSpec &spec, Value &cell) const override { return tuple_->find_cell(spec, cell); }
-
+public:
+  const std::vector<TupleCellSpec *> &get_tuple_cell_spec() const { return speces_; }
+  const bool is_aggregation() { return speces_.size() && speces_.front()->aggre_type() != AGGRE_NONE; }
 #if 0
   RC cell_spec_at(int index, const TupleCellSpec *&spec) const override
   {

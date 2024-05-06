@@ -14,17 +14,56 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
+#include <climits>
+#include <float.h>
+#include <unordered_map>
 #include <string>
 #include <vector>
 #include <memory>
 
 #include "sql/parser/value.h"
 
+#define MAX_NUM 20
+
 class Expression;
 
 /**
  * @defgroup SQLParser SQL Parser
  */
+
+/**
+ * @description: 聚合类型
+ */
+enum AggreType
+{
+  AGGRE_NONE,
+  AGGRE_MAX,
+  AGGRE_MIN,
+  AGGRE_COUNT,
+  AGGRE_AVG,
+  AGGRE_SUM
+};
+static std::string aggreType2str(AggreType aggre)
+{
+  static std::unordered_map<AggreType, std::string> m{
+      {AGGRE_NONE, "NONE"},
+      {AGGRE_MAX, "MAX"},
+      {AGGRE_MIN, "MIN"},
+      {AGGRE_COUNT, "COUNT"},
+      {AGGRE_AVG, "AVG"},
+      {AGGRE_SUM, "SUM"},
+  };
+  return m.at(aggre);
+}
+
+/**
+ * @description: aggretion 节点
+ */
+struct AggreTypeNode
+{
+  std::vector<std::string> attribute_names;         ///< 可能是多个字段
+  AggreType                aggre_type{AGGRE_NONE};  ///< 聚合类型
+};
 
 /**
  * @brief 描述一个属性
@@ -35,8 +74,11 @@ class Expression;
  */
 struct RelAttrSqlNode
 {
-  std::string relation_name;   ///< relation name (may be NULL) 表名
-  std::string attribute_name;  ///< attribute name              属性名
+  // std::string relation_name;   ///< relation name (may be NULL) 表名
+  // std::string attribute_name;  ///< attribute name              属性名
+  std::string   relation_name;   ///< relation name (may be NULL) 表名
+  std::string   attribute_name;  ///< attribute name              属性名
+  AggreTypeNode aggretion_node;
 };
 
 /**
@@ -179,9 +221,11 @@ struct DropTableSqlNode
  */
 struct CreateIndexSqlNode
 {
-  std::string index_name;      ///< Index name
-  std::string relation_name;   ///< Relation name
-  std::string attribute_name;  ///< Attribute name
+  std::string              index_name;       ///< Index name
+  std::string              relation_name;    ///< Relation name
+  std::vector<std::string> attribute_names;  ///< Attribute name, use vector in storage
+  int                      is_unique;        ///< whether is unique index
+  // std::string attribute_name;  ///< Attribute name
 };
 
 /**
@@ -267,6 +311,7 @@ enum SqlCommandFlag
   SCF_CREATE_TABLE,
   SCF_DROP_TABLE,
   SCF_CREATE_INDEX,
+  SCF_CREATE_UNIQUE_INDEX,
   SCF_DROP_INDEX,
   SCF_SYNC,
   SCF_SHOW_TABLES,
@@ -322,4 +367,152 @@ public:
 
 private:
   std::vector<std::unique_ptr<ParsedSqlNode>> sql_nodes_;  ///< 这里记录SQL命令。虽然看起来支持多个，但是当前仅处理一个
+};
+
+/**
+ * @description: 计算Aggre的类型
+ * @return {*}
+ */
+class AggreCalc
+{
+  using date = int32_t;
+  // 每次执行更新操作 `count` 更新一次, 便于求avg的值
+  // 求 avg 和 sum 都统一更新sum,随后再按照求的内容更新对应的值
+
+public:
+  AggreCalc() = delete;
+  // AggreType: MIN, MAX, AVG, COUNT, SUM
+  // 最初的初始化阶段，将计算好的值存储到对应的位置中，AVG值动态获取
+  AggreCalc(AggreType aggre_type, Value value) : aggre_type_(aggre_type), value_(value)
+  {
+    attr_type_ = value.attr_type();
+    i_count++;
+
+    switch (attr_type_) {
+      case CHARS: {
+        switch (aggre_type_) {
+          case AGGRE_MAX: s_max = value.get_string(); break;
+          case AGGRE_MIN: s_min = value.get_string(); break;
+          default: break;
+        }
+      } break;
+      case INTS: {
+        switch (aggre_type_) {
+          case AGGRE_MAX: i_max = value.get_int(); break;
+          case AGGRE_MIN: i_min = value.get_int(); break;
+          case AGGRE_AVG:
+          case AGGRE_SUM: i_sum += value.get_int(); break;
+          default: break;
+        }
+      } break;
+      case FLOATS: {
+        switch (aggre_type_) {
+          case AGGRE_MAX: f_max = value.get_float(); break;
+          case AGGRE_MIN: f_min = value.get_float(); break;
+          case AGGRE_AVG:
+          case AGGRE_SUM: f_sum += value.get_float(); break;
+          default: break;
+        }
+      }
+      default: break;
+    }
+  }
+
+  // 每次调用update都更新一次
+  void update(Value value)
+  {
+    i_count++;
+
+    switch (attr_type_) {
+      case CHARS: {
+        switch (aggre_type_) {
+          case AGGRE_MAX: s_max = std::max(s_max, value.get_string()); break;
+          case AGGRE_MIN: s_min = std::min(s_min, value.get_string()); break;
+          default: break;
+        }
+      } break;
+      case INTS: {
+        switch (aggre_type_) {
+          case AGGRE_MAX: i_max = std::max(i_max, value.get_int()); break;
+          case AGGRE_MIN: i_min = std::min(i_min, value.get_int()); break;
+          case AGGRE_AVG:
+          case AGGRE_SUM: i_sum += value.get_int(); break;
+          default: break;
+        }
+      } break;
+      case FLOATS: {
+        switch (aggre_type_) {
+          case AGGRE_MAX: f_max = std::max(f_max, value.get_float()); break;
+          case AGGRE_MIN: f_min = std::min(f_min, value.get_float()); break;
+          case AGGRE_AVG:
+          case AGGRE_SUM: f_sum += value.get_float(); break;
+          default: break;
+        }
+      }
+      default: break;
+    }
+  }
+
+  // 如果没有修改值，则每次select动态从这个里面获取
+  const Value get_value()
+  {
+    if (aggre_type_ == AGGRE_COUNT)
+      return Value((int)i_count);
+
+    switch (attr_type_) {
+      case CHARS: {
+        switch (aggre_type_) {
+          case AGGRE_MAX: value_.set_string(s_max.c_str()); break;
+          case AGGRE_MIN: value_.set_string(s_min.c_str()); break;
+          default: break;
+        }
+      } break;
+      case INTS: {
+        switch (aggre_type_) {
+          case AGGRE_MAX: value_.set_int(i_max); break;
+          case AGGRE_MIN: value_.set_int(i_min); break;
+          case AGGRE_AVG: {
+            if (i_sum % i_count == 0) {
+              value_.set_int(i_sum / i_count);
+            } else {  
+              // 如果结果为小数, 需要转化为FLOAT类型的value
+              value_.set_type(FLOATS);
+              value_.set_float(static_cast<float>(i_sum) / i_count);
+            }
+          } break;
+          case AGGRE_SUM: value_.set_int(i_sum); break;
+          default: break;
+        }
+      } break;
+      case FLOATS: {
+        switch (aggre_type_) {
+          case AGGRE_MAX: value_.set_float(f_max); break;
+          case AGGRE_MIN: value_.set_float(f_min); break;
+          case AGGRE_AVG: value_.set_float(f_sum / i_count); break;
+          case AGGRE_SUM: value_.set_float(f_sum); break;
+          default: break;
+        }
+      }
+      default: break;
+    }
+    return value_;
+  }
+
+private:
+  AggreType   aggre_type_;
+  Value       value_;
+  AttrType    attr_type_;
+  std::string s_min;
+  std::string s_max;
+
+  int       i_max{INT_MIN};
+  int       i_min{INT_MAX};
+  float     i_avg{0};  // 结果可能有小数
+  long long i_sum{0};
+  long long i_count{0};
+
+  double f_sum{0};
+  double f_avg{0};
+  float  f_max{FLT_MIN};
+  float  f_min{FLT_MAX};
 };

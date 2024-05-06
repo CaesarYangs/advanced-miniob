@@ -16,6 +16,7 @@ See the Mulan PSL v2 for more details. */
 
 #include "common/rc.h"
 #include <string>
+#include <vector>
 
 class TableMeta;
 class FieldMeta;
@@ -35,19 +36,28 @@ class IndexMeta
 public:
   IndexMeta() = default;
 
-  RC init(const char *name, const FieldMeta &field);
+  // RC init(const char *name, const FieldMeta &field);
+  RC init(const char *name, std::vector<const FieldMeta *> fields,int unique);
+  RC init(const char *name, std::vector<std::string> fields);
 
 public:
   const char *name() const;
+  const bool is_unique() const;
+  const int field_count() const;
   const char *field() const;
+  const std::vector<std::string> *fields() const;
+  std::string get_field_names_str() const;
 
   void desc(std::ostream &os) const;
+  void show(std::ostream &os) const;
 
 public:
   void      to_json(Json::Value &json_value) const;
   static RC from_json(const TableMeta &table, const Json::Value &json_value, IndexMeta &index);
 
 protected:
+  bool unique_ = false;             // wether unique index
   std::string name_;   // index's name
-  std::string field_;  // field's name
+  // std::string field_;  // field's name
+  std::vector<std::string> field_; //field's name(multi)
 };

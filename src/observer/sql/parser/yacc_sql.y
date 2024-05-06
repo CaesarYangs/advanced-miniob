@@ -59,6 +59,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
         DROP
         TABLE
         TABLES
+        UNIQUE
         INDEX
         CALC
         SELECT
@@ -98,6 +99,11 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
         LE
         GE
         NE
+        SUM
+        COUNT
+        AVG
+        MIN
+        MAX
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
 %union {
@@ -105,23 +111,29 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   ConditionSqlNode *                condition;
   Value *                           value;
   enum CompOp                       comp;
+  enum AggreType                    aggre_type; 
+  AggreTypeNode *                   aggre_node;
   RelAttrSqlNode *                  rel_attr;
   std::vector<AttrInfoSqlNode> *    attr_infos;
   AttrInfoSqlNode *                 attr_info;
   Expression *                      expression;
   std::vector<Expression *> *       expression_list;
   std::vector<Value> *              value_list;
+  std::vector<std::string> *        id_list;
   std::vector<ConditionSqlNode> *   condition_list;
   std::vector<RelAttrSqlNode> *     rel_attr_list;
   std::vector<std::string> *        relation_list;
+  std::vector<std::string> *        aggre_attr_list;
   char *                            string;
   int                               number;
+  int opt_unique;
   float                             floats;
 }
 
 %token <number> NUMBER
 %token <floats> FLOAT
 %token <string> ID
+%token <string> AGGRE_ATTR
 %token <string> SSS
 //非终结符
 
@@ -132,14 +144,21 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <number>              number
 %type <comp>                comp_op
 %type <rel_attr>            rel_attr
+%type <aggre_type>          aggre_type
+%type <rel_attr>            rel_attr_aggre
+%type <aggre_node>          aggre_node
 %type <attr_infos>          attr_def_list
 %type <attr_info>           attr_def
 %type <value_list>          value_list
+%type <id_list>             id_list
+%type<opt_unique>           opt_unique
 %type <condition_list>      where
 %type <condition_list>      condition_list
-%type <rel_attr_list>       select_attr
+/* %type <rel_attr_list>       select_attr */
+%type <rel_attr_list>       selector
 %type <relation_list>       rel_list
-%type <rel_attr_list>       attr_list
+%type <relation_list>       attr_list
+%type <aggre_attr_list>     aggre_attr_list
 %type <expression>          expression
 %type <expression_list>     expression_list
 %type <sql_node>            calc_stmt
@@ -163,6 +182,9 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <sql_node>            help_stmt
 %type <sql_node>            exit_stmt
 %type <sql_node>            command_wrapper
+%type <string>              rel_name  // 表名
+%type <string>              attr_name // 列名
+%type <string>              aggre_attr_name // aggre_attr_name
 // commands should be a list but I use a single command instead
 %type <sql_node>            commands
 
@@ -257,17 +279,44 @@ desc_table_stmt:
     }
     ;
 
-create_index_stmt:    /*create index 语句的语法解析树*/
-    CREATE INDEX ID ON ID LBRACE ID RBRACE
+create_index_stmt:
+    CREATE opt_unique INDEX ID ON ID LBRACE id_list RBRACE SEMICOLON
     {
       $$ = new ParsedSqlNode(SCF_CREATE_INDEX);
       CreateIndexSqlNode &create_index = $$->create_index;
-      create_index.index_name = $3;
-      create_index.relation_name = $5;
-      create_index.attribute_name = $7;
+      create_index.index_name = $4;
+      create_index.relation_name = $6;
+      create_index.attribute_names = *$8;
+      create_index.is_unique = $2 ? 1 : 0;
+      delete $8;
+      free($4);
+      free($6);
+    }
+    ;
+
+opt_unique:
+    /* empty */
+    {
+      $$ = 0;
+    }
+    | UNIQUE
+    {
+      $$ = 1;
+    }
+    ;
+
+id_list:
+    ID
+    {
+      $$ = new std::vector<std::string>;
+      $$->emplace_back($1);
+      free($1);
+    }
+    | id_list COMMA ID
+    {
+      $$ = $1;
+      $$->emplace_back($3);
       free($3);
-      free($5);
-      free($7);
     }
     ;
 
@@ -420,27 +469,122 @@ update_stmt:      /*  update 语句的语法解析树*/
     }
     ;
 select_stmt:        /*  select 语句的语法解析树*/
-    SELECT select_attr FROM ID rel_list where
+    SELECT selector FROM rel_list where
     {
       $$ = new ParsedSqlNode(SCF_SELECT);
       if ($2 != nullptr) {
         $$->selection.attributes.swap(*$2);
         delete $2;
       }
+      if ($4 != nullptr) {
+        $$->selection.relations.swap(*$4);
+        delete $4;
+      }
       if ($5 != nullptr) {
-        $$->selection.relations.swap(*$5);
+        $$->selection.conditions.swap(*$5);
         delete $5;
       }
-      $$->selection.relations.push_back($4);
-      std::reverse($$->selection.relations.begin(), $$->selection.relations.end());
-
-      if ($6 != nullptr) {
-        $$->selection.conditions.swap(*$6);
-        delete $6;
-      }
-      free($4);
     }
     ;
+
+selector:
+    rel_attr_aggre
+    {
+      $$ = new std::vector<RelAttrSqlNode>{*$1}; 
+      delete $1;  
+    }
+    | selector COMMA rel_attr_aggre
+    {
+      $$->emplace_back(*$3); 
+      delete $3; 
+    }
+    ;
+/**
+ * @description: 包含了 `COUNT(*), id` 这种情况, 需要特判
+ * @return {RelAttrSqlNode*}
+ */
+rel_attr_aggre:
+      rel_attr
+    {
+      $$ = $1; 
+    }
+    | aggre_node
+    {
+      $$ = new RelAttrSqlNode;
+      $$->aggretion_node = *$1; 
+      delete $1; 
+    }
+    ;
+
+/**
+ * @description: 获取aggre节点, 当前COUNT(list) TODO 中暂时写的是列名, 没有考虑表名
+ * @return {AggreTypeNode*}
+ */
+aggre_node:
+      aggre_type LBRACE aggre_attr_list RBRACE
+    {
+      $$ = new AggreTypeNode;
+      $$->aggre_type = $1; 
+      if ($3 != nullptr) {
+        $$->attribute_names.swap(*$3); 
+        delete $3; 
+      }
+    }
+    ;
+
+rel_attr:
+    attr_name
+    {
+      $$ = new RelAttrSqlNode{"", $1};
+      free($1);
+    }
+    | rel_name DOT attr_name
+    {
+      $$ = new RelAttrSqlNode{$1, $3};
+      free($1);
+      free($3);
+    }
+    ;
+
+attr_list:
+    attr_name
+    {
+      $$ = new std::vector<std::string>{$1};
+      free($1); 
+    }
+    | attr_list COMMA attr_name
+    {
+      $$->emplace_back($3); 
+      free($3);
+    }
+    ;
+
+rel_list:
+    /* empty */
+    {
+      $$ = nullptr;
+    }
+    | rel_name
+    {
+      $$ = new std::vector<std::string>{$1};
+      free($1); 
+    }
+    | rel_list COMMA rel_name
+    {
+      $$->emplace_back($3); 
+      free($3);
+    }
+    ;
+where:
+    /* empty */
+    {
+      $$ = nullptr;
+    }
+    | WHERE condition_list {
+      $$ = $2;  
+    }
+    ;
+
 calc_stmt:
     CALC expression_list
     {
@@ -494,82 +638,6 @@ expression:
     }
     ;
 
-select_attr:
-    '*' {
-      $$ = new std::vector<RelAttrSqlNode>;
-      RelAttrSqlNode attr;
-      attr.relation_name  = "";
-      attr.attribute_name = "*";
-      $$->emplace_back(attr);
-    }
-    | rel_attr attr_list {
-      if ($2 != nullptr) {
-        $$ = $2;
-      } else {
-        $$ = new std::vector<RelAttrSqlNode>;
-      }
-      $$->emplace_back(*$1);
-      delete $1;
-    }
-    ;
-
-rel_attr:
-    ID {
-      $$ = new RelAttrSqlNode;
-      $$->attribute_name = $1;
-      free($1);
-    }
-    | ID DOT ID {
-      $$ = new RelAttrSqlNode;
-      $$->relation_name  = $1;
-      $$->attribute_name = $3;
-      free($1);
-      free($3);
-    }
-    ;
-
-attr_list:
-    /* empty */
-    {
-      $$ = nullptr;
-    }
-    | COMMA rel_attr attr_list {
-      if ($3 != nullptr) {
-        $$ = $3;
-      } else {
-        $$ = new std::vector<RelAttrSqlNode>;
-      }
-
-      $$->emplace_back(*$2);
-      delete $2;
-    }
-    ;
-
-rel_list:
-    /* empty */
-    {
-      $$ = nullptr;
-    }
-    | COMMA ID rel_list {
-      if ($3 != nullptr) {
-        $$ = $3;
-      } else {
-        $$ = new std::vector<std::string>;
-      }
-
-      $$->push_back($2);
-      free($2);
-    }
-    ;
-where:
-    /* empty */
-    {
-      $$ = nullptr;
-    }
-    | WHERE condition_list {
-      $$ = $2;  
-    }
-    ;
 condition_list:
     /* empty */
     {
@@ -646,6 +714,14 @@ comp_op:
     | NE { $$ = NOT_EQUAL; }
     ;
 
+aggre_type:
+      SUM   { $$ = AGGRE_SUM; }
+    | AVG   { $$ = AGGRE_AVG; }
+    | COUNT { $$ = AGGRE_COUNT; }
+    | MAX   { $$ = AGGRE_MAX; }
+    | MIN   { $$ = AGGRE_MIN; }
+    ;
+
 load_data_stmt:
     LOAD DATA INFILE SSS INTO TABLE ID 
     {
@@ -680,6 +756,61 @@ set_variable_stmt:
 
 opt_semicolon: /*empty*/
     | SEMICOLON
+    ;
+
+aggre_attr_list:
+      /* empty */
+    {
+      $$ = nullptr; 
+    }
+    | aggre_attr_name
+    {
+      $$ = new std::vector<std::string>{$1};
+      free($1); 
+    }
+    | attr_list COMMA aggre_attr_name
+    {
+      $$->emplace_back($3); 
+      free($3);
+    }
+    ;
+
+aggre_attr_name: // aggre_attr 可能有数字
+      attr_name
+    {
+      $$ = $1; 
+    }
+    | number
+    {
+      int str_len = snprintf(NULL, 0, "%d", $1);
+      char *str = (char *)malloc((str_len + 1) * sizeof(char));
+      snprintf(str, str_len + 1, "%d", $1);
+      $$ = str;
+    }
+    | AGGRE_ATTR // 数字 + 字母 可能没有, 先加上
+    {
+      $$ = $1; 
+    }
+    ;
+
+rel_name: ID { $$ = $1; }
+
+/**
+ * @description: 返回列名, 列名可能为 `*`, 在此进行特判
+ * @return {*} char *
+ */
+attr_name:
+      ID // ID 返回的是一个new的数据
+    {
+      $$ = $1;
+    }
+    | '*'
+    {
+      // 使用malloc为了和他的free配合
+      char *str = (char *)malloc(strlen("*") + 1);  // 加1用于存储字符串结束符'\0'
+      strcpy(str, "*");
+      $$ = str;
+    }
     ;
 %%
 //_____________________________________________________________________

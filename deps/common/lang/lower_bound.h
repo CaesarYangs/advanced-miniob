@@ -60,6 +60,107 @@ ForwardIterator lower_bound(
   return first;
 }
 
+template <typename ForwardIterator, typename T, typename Compare>
+ForwardIterator lower_bound_v2_advanced(ForwardIterator first, ForwardIterator last, const T &val, Compare comp,
+    bool *_found = nullptr, bool is_unique = true)
+{
+  bool            found = false;
+  ForwardIterator iter;
+  const auto      count      = std::distance(first, last);
+  auto            last_count = count;
+  while (last_count > 0) {
+    iter      = first;
+    auto step = last_count / 2;
+    std::advance(iter, step);
+    LOG_DEBUG("[[[I'm Here Here]]]");
+    int result = comp(*iter, val, is_unique);
+    if (0 == result) {
+      first = iter;
+      found = true;
+      break;
+    }
+    if (result < 0) {
+      first = ++iter;
+      last_count -= step + 1;
+    } else {
+      last_count = step;
+    }
+  }
+
+  if (_found) {
+    *_found = found;
+  }
+  return first;
+}
+
+// 以下两种方案都不行。为什么不行：没有理解索引，B+树索引真正的本质；错在哪了：应该在找到对应的页面后，在那个小块内进行检索，而不是全盘检索，那样还不如直接O(n)简单呢，也就是为什么要用B+树
+template <typename ForwardIterator, typename T, typename Compare>
+ForwardIterator lower_bound_v2(ForwardIterator first, ForwardIterator last, const T &val, Compare comp,
+    bool *_found = nullptr, const std::vector<FieldMeta> &key_field_meta = {})
+{
+  bool            found = false;
+  ForwardIterator iter;
+  const auto      count      = std::distance(first, last);
+  auto            last_count = count;
+  while (last_count > 0) {
+    iter      = first;
+    auto step = last_count / 2;
+    std::advance(iter, step);
+    int result     = comp(*iter, val);                  // 按照RID寻找
+    int unique_res = comp(*iter, val, key_field_meta);  // 按照record value寻找
+    if (0 == result || unique_res == 0) {
+      first = iter;
+      found = true;
+      break;
+    }
+    if (result < 0) {
+      first = ++iter;
+      last_count -= step + 1;
+    } else {
+      last_count = step;
+    }
+  }
+
+  if (_found) {
+    *_found = found;
+  }
+  return first;
+}
+
+template <typename ForwardIterator, typename T, typename Compare>
+ForwardIterator lower_bound_with_record(ForwardIterator first, ForwardIterator last, const T &val, Compare comp,
+    bool *_found = nullptr, const std::vector<FieldMeta> &key_field_meta = {})
+{
+  LOG_DEBUG("[[[[[[[[[[[[[I am here too]]]]]]]]]]]]]");
+  bool            found = false;
+  ForwardIterator iter;
+  const auto      count      = std::distance(first, last);
+  auto            last_count = count;
+  while (last_count > 0) {
+    iter      = first;
+    auto step = last_count / 2;
+    std::advance(iter, step);
+    int result = comp(*iter, val, key_field_meta);
+    LOG_DEBUG("[[[[[[[[[[[[[found found found]]]]]]]]]]]]] %d",result);
+    if (0 == result) {
+      first = iter;
+      found = true;
+      break;
+    }
+    if (result < 0) {
+      first = ++iter;
+      last_count -= step + 1;
+    } else {
+      last_count = step;
+    }
+  }
+
+  if (_found) {
+    *_found = found;
+  }
+  return first;
+}
+
 template <typename T>
 class Comparator
 {
@@ -111,7 +212,7 @@ public:
   BinaryIterator  operator++(int)
   {
     BinaryIterator tmp(*this);
-    this->         operator++();
+    this->operator++();
     return tmp;
   }
   BinaryIterator &operator--() { return this->operator+=(-1); }
