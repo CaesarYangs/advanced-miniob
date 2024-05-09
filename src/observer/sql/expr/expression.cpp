@@ -86,32 +86,33 @@ ComparisonExpr::~ComparisonExpr() {}
 RC ComparisonExpr::compare_value(const Value &left, const Value &right, bool &result) const
 {
   RC  rc         = RC::SUCCESS;
-  int cmp_result = left.compare(right);
-  result         = false;
-  switch (comp_) {
-    case EQUAL_TO: {
-      result = (0 == cmp_result);
-    } break;
-    case LESS_EQUAL: {
-      result = (cmp_result <= 0);
-    } break;
-    case NOT_EQUAL: {
-      result = (cmp_result != 0);
-    } break;
-    case LESS_THAN: {
-      result = (cmp_result < 0);
-    } break;
-    case GREAT_EQUAL: {
-      result = (cmp_result >= 0);
-    } break;
-    case GREAT_THAN: {
-      result = (cmp_result > 0);
-    } break;
-    default: {
-      LOG_WARN("unsupported comparison. %d", comp_);
-      rc = RC::INTERNAL;
-    } break;
-  }
+  // int cmp_result = left.compare(right);
+  // result         = false;
+  // switch (comp_) {
+  //   case EQUAL_TO: {
+  //     result = (0 == cmp_result);
+  //   } break;
+  //   case LESS_EQUAL: {
+  //     result = (cmp_result <= 0);
+  //   } break;
+  //   case NOT_EQUAL: {
+  //     result = (cmp_result != 0);
+  //   } break;
+  //   case LESS_THAN: {
+  //     result = (cmp_result < 0);
+  //   } break;
+  //   case GREAT_EQUAL: {
+  //     result = (cmp_result >= 0);
+  //   } break;
+  //   case GREAT_THAN: {
+  //     result = (cmp_result > 0);
+  //   } break;
+  //   default: {
+  //     LOG_WARN("unsupported comparison. %d", comp_);
+  //     rc = RC::INTERNAL;
+  //   } break;
+  // }
+  result = left.compare(comp_,right);
 
   return rc;
 }
