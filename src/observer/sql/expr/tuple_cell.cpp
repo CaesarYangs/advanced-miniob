@@ -32,7 +32,7 @@ TupleCellSpec::TupleCellSpec(const char *table_name, const char *field_name, con
       alias_ = table_name_ + "." + field_name_;
     }
   }
-  aggre_tyep_ = aggre_type;
+  aggre_tyep_ = aggre_type; //加入聚集函数部分
 }
 
 TupleCellSpec::TupleCellSpec(const char *alias)

@@ -26,6 +26,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/predicate_logical_operator.h"
 #include "sql/operator/project_logical_operator.h"
 #include "sql/operator/table_get_logical_operator.h"
+#include "sql/operator/orderby_logical_operator.h"
 
 #include "sql/stmt/calc_stmt.h"
 #include "sql/stmt/delete_stmt.h"
@@ -106,10 +107,12 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
       }
     }
 
+    // 获取便利table用的逻辑算子
     unique_ptr<LogicalOperator> table_get_oper(new TableGetLogicalOperator(table, fields, true /*readonly*/));
     if (table_oper == nullptr) {
       table_oper = std::move(table_get_oper);
     } else {
+      // 构建查询计划
       JoinLogicalOperator *join_oper = new JoinLogicalOperator;
       join_oper->add_child(std::move(table_oper));
       join_oper->add_child(std::move(table_get_oper));
@@ -117,6 +120,7 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
     }
   }
 
+  // 谓词与投影操作
   unique_ptr<LogicalOperator> predicate_oper;
 
   RC rc = create_plan(select_stmt->filter_stmt(), predicate_oper);
@@ -125,22 +129,53 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
     return rc;
   }
 
+  unique_ptr<LogicalOperator> orderby_oper;
+  rc = create_plan(select_stmt->order_by_stmt(), orderby_oper);
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("failed to create order logical plan. rc=%s", strrc(rc));
+    return rc;
+  }
+
   unique_ptr<LogicalOperator> project_oper(new ProjectLogicalOperator(all_fields));
   if (predicate_oper) {
+    // 投影操作将作用于谓词过滤后的结果
     if (table_oper) {
       predicate_oper->add_child(std::move(table_oper));
     }
     project_oper->add_child(std::move(predicate_oper));
   } else {
+    // 投影操作将直接作用于表获取的结果
     if (table_oper) {
       project_oper->add_child(std::move(table_oper));
     }
+  }
+
+  if (orderby_oper) {
+    orderby_oper->add_child(std::move(project_oper));
+    logical_operator.swap(orderby_oper);
+    return RC::SUCCESS;
   }
 
   logical_operator.swap(project_oper);
   return RC::SUCCESS;
 }
 
+RC LogicalPlanGenerator::create_plan(OrderByStmt *order_by_stmt, std::unique_ptr<LogicalOperator> &logical_operator)
+{
+  const std::vector<OrderByUnit *> order_units = order_by_stmt->order_units();
+  if (order_units.empty()) {
+    LOG_INFO("No OrderByUnits");
+    logical_operator = nullptr;
+    return RC::SUCCESS;
+  }
+
+  unique_ptr<OrderLogicalOperator> order_oper = std::make_unique<OrderLogicalOperator>(order_units);
+
+  logical_operator = std::move(order_oper);
+  return RC::SUCCESS;
+}
+
+// 构建select逻辑查询计划
 RC LogicalPlanGenerator::create_plan(FilterStmt *filter_stmt, unique_ptr<LogicalOperator> &logical_operator)
 {
   std::vector<unique_ptr<Expression>> cmp_exprs;

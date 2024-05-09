@@ -43,5 +43,5 @@ public:
   Tuple *current_tuple() override;
 
 private:
-  ProjectTuple tuple_;
+  ProjectTuple tuple_;  //投影Tuple,选择要查询的语句中的列
 };

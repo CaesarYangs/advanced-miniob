@@ -58,5 +58,5 @@ private:
   const Table     *table_ = nullptr;
   const FieldMeta *field_ = nullptr;
   AggreType        aggre_type_{AGGRE_NONE};
-  std::string      alias_;  // COUNT的时候, COUNT(123)都可能, 用这个字段存储
+  std::string      alias_;  // COUNT的具体内容，也就是括号里的内容
 };

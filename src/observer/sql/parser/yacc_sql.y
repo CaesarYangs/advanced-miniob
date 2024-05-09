@@ -63,6 +63,9 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
         INDEX
         CALC
         SELECT
+        ORDER
+        ASC
+        BY
         DESC
         SHOW
         SYNC
@@ -111,12 +114,14 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   ConditionSqlNode *                condition;
   Value *                           value;
   enum CompOp                       comp;
-  enum AggreType                    aggre_type; 
+  enum AggreType                    aggre_type;
+  enum OrderType                    order_type;
   AggreTypeNode *                   aggre_node;
   RelAttrSqlNode *                  rel_attr;
   std::vector<AttrInfoSqlNode> *    attr_infos;
   AttrInfoSqlNode *                 attr_info;
   Expression *                      expression;
+  OrderSqlNode *                    order_node;
   std::vector<Expression *> *       expression_list;
   std::vector<Value> *              value_list;
   std::vector<std::string> *        id_list;
@@ -124,6 +129,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   std::vector<RelAttrSqlNode> *     rel_attr_list;
   std::vector<std::string> *        relation_list;
   std::vector<std::string> *        aggre_attr_list;
+  std::vector<OrderSqlNode> *       order_list;
   char *                            string;
   int                               number;
   int opt_unique;
@@ -145,6 +151,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <comp>                comp_op
 %type <rel_attr>            rel_attr
 %type <aggre_type>          aggre_type
+%type <order_type>          order_type
 %type <rel_attr>            rel_attr_aggre
 %type <aggre_node>          aggre_node
 %type <attr_infos>          attr_def_list
@@ -161,6 +168,8 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <aggre_attr_list>     aggre_attr_list
 %type <expression>          expression
 %type <expression_list>     expression_list
+%type <order_node>          order_node
+%type <order_list>          order_list
 %type <sql_node>            calc_stmt
 %type <sql_node>            select_stmt
 %type <sql_node>            insert_stmt
@@ -469,7 +478,7 @@ update_stmt:      /*  update 语句的语法解析树*/
     }
     ;
 select_stmt:        /*  select 语句的语法解析树*/
-    SELECT selector FROM rel_list where
+    SELECT selector FROM rel_list where order_list
     {
       $$ = new ParsedSqlNode(SCF_SELECT);
       if ($2 != nullptr) {
@@ -483,6 +492,10 @@ select_stmt:        /*  select 语句的语法解析树*/
       if ($5 != nullptr) {
         $$->selection.conditions.swap(*$5);
         delete $5;
+      }
+      if ($6 != nullptr) {
+        $$->selection.orders.swap(*$6);
+        delete $6;
       }
     }
     ;
@@ -582,6 +595,40 @@ where:
     }
     | WHERE condition_list {
       $$ = $2;  
+    }
+    ;
+
+order_node:
+    rel_attr order_type
+    {
+      $$ = new OrderSqlNode{*$1,$2};
+      delete $1;
+    }
+    ;
+
+/**
+ * @description: 递归解析所有的orderby
+ * @return {OrderSqlNode*} 
+ */
+order_list:
+      /* empty */
+    {
+      $$ = nullptr;
+    }
+    | order_node
+    {
+      $$ = new std::vector<OrderSqlNode>{*$1};
+      delete $1;
+    }
+    | ORDER BY order_node
+    {
+      $$ = new std::vector<OrderSqlNode>{*$3};
+      delete $3;
+    }
+    | order_list COMMA order_node
+    {
+      $$->emplace_back(*$3);
+      delete $3;
     }
     ;
 
@@ -720,6 +767,13 @@ aggre_type:
     | COUNT { $$ = AGGRE_COUNT; }
     | MAX   { $$ = AGGRE_MAX; }
     | MIN   { $$ = AGGRE_MIN; }
+    ;
+
+order_type:
+      /* empty */
+      {$$ = ORDER_ASC; }
+    | ASC   { $$ = ORDER_ASC; }
+    | DESC  { $$ = ORDER_DESC; }
     ;
 
 load_data_stmt:

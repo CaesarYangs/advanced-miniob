@@ -18,6 +18,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/parser/date.h"
 #include "common/log/log.h"
 #include <sstream>
+#include <cmath>
 
 const char *ATTR_TYPE_NAME[] = {"undefined", "chars", "ints", "dates", "floats", "booleans"};
 
@@ -217,6 +218,85 @@ int Value::compare(const Value &other) const
   return -1;  // TODO return rc?
 }
 
+/**
+ * @brief 比较两个Value
+ *
+ * @param comp_op 比较符号
+ * @param other 另一个Value
+ * @return bool 比较是否成功
+ */
+bool Value::compare(const CompOp &comp_op, const Value &other) const
+{
+  int cmp_result = 0;
+  if (this->attr_type_ == other.attr_type_) {
+    switch (this->attr_type_) {
+      case INTS: {
+        cmp_result = common::compare_int((void *)&this->num_value_.int_value_, (void *)&other.num_value_.int_value_);
+      } break;
+      case FLOATS: {
+        cmp_result =
+            common::compare_float((void *)&this->num_value_.float_value_, (void *)&other.num_value_.float_value_);
+      } break;
+      case CHARS: {
+        if (comp_op == LIKE || comp_op == NOT_LIKE) {
+          cmp_result = common::string_match(
+              (void *)this->str_value_.c_str(),
+              this->str_value_.length(),
+              (void *)other.str_value_.c_str(),
+              other.str_value_.length()
+          );
+        } else {
+          cmp_result = common::compare_string(
+              (void *)this->str_value_.c_str(),
+              this->str_value_.length(),
+              (void *)other.str_value_.c_str(),
+              other.str_value_.length()
+          );
+        }
+      } break;
+      case BOOLEANS: {
+        cmp_result = common::compare_int((void *)&this->num_value_.bool_value_, (void *)&other.num_value_.bool_value_);
+      }
+      default: {
+        LOG_WARN("unsupported type: %d", this->attr_type_);
+      }
+    }
+  } else if (this->attr_type_ == INTS && other.attr_type_ == FLOATS) {
+    float this_data = this->num_value_.int_value_;
+    cmp_result      = common::compare_float((void *)&this_data, (void *)&other.num_value_.float_value_);
+  } else if (this->attr_type_ == FLOATS && other.attr_type_ == INTS) {
+    float other_data = other.num_value_.int_value_;
+    cmp_result       = common::compare_float((void *)&this->num_value_.float_value_, (void *)&other_data);
+  } else if ((this->attr_type_ == FLOATS || this->attr_type_ == INTS) && other.attr_type_ == CHARS) {
+    Value self, oppsite = *this, *other;
+    self.type_cast(FLOATS);
+    oppsite.type_cast(FLOATS);
+    cmp_result = common::compare_float((void *)&self.num_value_.float_value_, (void *)&oppsite.num_value_.float_value_);
+  } else if (this->attr_type_ == CHARS && (other.attr_type_ == INTS || other.attr_type_ == FLOATS)) {
+    Value self = *this, oppsite = other;
+    self.type_cast(FLOATS);
+    oppsite.type_cast(FLOATS);
+    cmp_result = common::compare_float((void *)&self.num_value_.float_value_, (void *)&oppsite.num_value_.float_value_);
+  } else {
+    LOG_WARN("not supported,Type Error");
+    return false;
+  }
+
+  switch (comp_op) {
+    case EQUAL_TO: return 0 == cmp_result;
+    case LESS_EQUAL: return cmp_result <= 0;
+    case NOT_EQUAL: return cmp_result != 0;
+    case LESS_THAN: return cmp_result < 0;
+    case GREAT_EQUAL: return cmp_result >= 0;
+    case GREAT_THAN: return cmp_result > 0;
+    case LIKE: return cmp_result == 0;
+    case NOT_LIKE: return cmp_result != 0;
+    default: break;
+  }
+
+  return false;  // TODO return rc?
+}
+
 int Value::get_int() const
 {
   switch (attr_type_) {
@@ -343,5 +423,71 @@ Date Value::get_date() const {
   case DATES: return num_value_.date_value_;
   case CHARS: return Date(str_value_);
   default: return Date(-1);
+  }
+}
+
+/**
+ * @brief 完成类型转换的函数
+ *
+ * @param target
+ * @return true 转换成功
+ * @return false 转换失败
+ */
+bool Value::type_cast(const AttrType target)
+{
+  if (attr_type_ == target)
+    return true;
+  std::stringstream ss;
+  switch (target) {
+    case INTS: {
+      int temp{0};
+      if (attr_type_ == FLOATS) {
+        temp = static_cast<int>(round(num_value_.float_value_));
+        set_int(temp);
+        return true;
+      } else if (attr_type_ == CHARS) {
+        ss << str_value_;
+        ss >> temp;
+        if (ss.fail())
+          temp = 0;
+        set_int(temp);
+        str_value_.clear();
+        return true;
+      }
+    }
+    case FLOATS: {
+      float temp{0.0f};
+      if (attr_type_ == INTS) {
+        temp = static_cast<float>(num_value_.int_value_);
+        set_float(temp);
+        return true;
+      } else if (attr_type_ == CHARS) {
+        ss << str_value_;
+        ss >> temp;
+        if (ss.fail())
+          temp = 0.0f;
+        set_float(temp);
+        return true;
+      }
+    }
+    case CHARS: {
+      std::string res;
+      if (attr_type_ == INTS) {
+        ss << num_value_.int_value_;
+        ss >> res;
+        set_string(res.c_str());
+        return true;
+      }
+      if (attr_type_ == FLOATS) {
+        ss << num_value_.float_value_;
+        ss >> res;
+        set_string(res.c_str());
+        return true;
+      }
+    }
+    default: {
+      LOG_WARN("Typecast Failed");
+      return false;
+    }
   }
 }

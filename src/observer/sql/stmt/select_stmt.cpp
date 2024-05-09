@@ -20,6 +20,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/stmt/filter_stmt.h"
 #include "storage/db/db.h"
 #include "storage/table/table.h"
+#include "sql/stmt/order_by_stmt.h"
 #include <cstddef>
 
 SelectStmt::~SelectStmt()
@@ -69,10 +70,10 @@ static RC get_fields(bool is_aggre, std::vector<Field> &query_fields, const std:
           LOG_WARN("Aggregation type %s cannot match parameters '*'", aggreType2str(aggre_type).c_str());
           return RC::INTERNAL;
         }
-        field_meta = table->table_meta().field(0); // 默认在第一列做count(*)
+        field_meta = table->table_meta().field(0);  // 默认在第一列做count(*)
       } else {
         // 查询的列名不存在
-        if (nullptr == field_meta) {  
+        if (nullptr == field_meta) {
           LOG_WARN("no such field. field=%s.%s.%s", db->name(), table->name(), attr_name.c_str());
           return RC::SCHEMA_FIELD_MISSING;
         }
@@ -147,6 +148,7 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt)
   // collect tables in `from` statement
   std::vector<Table *>                     tables;
   std::unordered_map<std::string, Table *> table_map;
+  std::vector<OrderSqlNode>                orderbys = select_sql.orders;
   for (size_t i = 0; i < select_sql.relations.size(); i++) {
     // is table name valid
     const char *table_name = select_sql.relations[i].c_str();
@@ -163,10 +165,10 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt)
     }
 
     tables.push_back(table);
-    table_map.insert(std::pair<std::string, Table *>(table_name, table)); //用map作为存储介质
+    table_map.insert(std::pair<std::string, Table *>(table_name, table));  // 用map作为存储介质
   }
 
-  auto &attributes = select_sql.attributes;
+  auto  &attributes      = select_sql.attributes;
   size_t aggregation_num = 0;
   for (auto &attribute : attributes) {
     if (attribute.aggretion_node.aggre_type != AGGRE_NONE) {
@@ -182,7 +184,7 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt)
 
   // get the fields (table_meta, (table_name, col_name))
   // 全部的关键信息都被存储到query_fields中，包括对每个字段上是否进行agg，进行何种agg，都存储起来，并准备下一步操作
-  std::vector<Field> query_fields;  
+  std::vector<Field> query_fields;
   RC rc = get_fields(static_cast<bool>(aggregation_num), query_fields, attributes, table_map, tables, db);
   if (rc != RC::SUCCESS) {
     LOG_WARN("cannot construct filter stmt");
@@ -210,12 +212,23 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt)
     return rc;
   }
 
+  // create orderby stmt for ORDER BY
+  // 创建ORDER_BY的STMT
+  OrderByStmt *orderby_stmt = nullptr;
+  rc                        = OrderByStmt::create(
+      db, default_table, &table_map, orderbys.data(), static_cast<int>(orderbys.size()), orderby_stmt);
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("cannot construct orderby stmt");
+    return rc;
+  }
+
   // everything alright
   SelectStmt *select_stmt = new SelectStmt();
   // TODO add expression copy
   select_stmt->tables_.swap(tables);
   select_stmt->query_fields_.swap(query_fields);
   select_stmt->filter_stmt_ = filter_stmt;
+  select_stmt->order_stmt_  = orderby_stmt;
   stmt                      = select_stmt;
   return RC::SUCCESS;
 }

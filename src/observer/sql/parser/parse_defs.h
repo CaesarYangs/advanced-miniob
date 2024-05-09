@@ -27,6 +27,15 @@ See the Mulan PSL v2 for more details. */
 
 class Expression;
 
+enum OrderType
+{
+  NONE,  // 无ORDER要求
+  ORDER_ASC,   // 升序
+  ORDER_DESC   // 降序
+};
+
+struct OrderSqlNode;
+
 /**
  * @defgroup SQLParser SQL Parser
  */
@@ -81,20 +90,20 @@ struct RelAttrSqlNode
   AggreTypeNode aggretion_node;
 };
 
-/**
- * @brief 描述比较运算符
- * @ingroup SQLParser
- */
-enum CompOp
-{
-  EQUAL_TO,     ///< "="
-  LESS_EQUAL,   ///< "<="
-  NOT_EQUAL,    ///< "<>"
-  LESS_THAN,    ///< "<"
-  GREAT_EQUAL,  ///< ">="
-  GREAT_THAN,   ///< ">"
-  NO_OP
-};
+// /**
+//  * @brief 描述比较运算符
+//  * @ingroup SQLParser
+//  */
+// enum CompOp
+// {
+//   EQUAL_TO,     ///< "="
+//   LESS_EQUAL,   ///< "<="
+//   NOT_EQUAL,    ///< "<>"
+//   LESS_THAN,    ///< "<"
+//   GREAT_EQUAL,  ///< ">="
+//   GREAT_THAN,   ///< ">"
+//   NO_OP
+// };
 
 /**
  * @brief 表示一个条件比较
@@ -133,6 +142,7 @@ struct SelectSqlNode
   std::vector<RelAttrSqlNode>   attributes;  ///< attributes in select clause
   std::vector<std::string>      relations;   ///< 查询的表
   std::vector<ConditionSqlNode> conditions;  ///< 查询条件，使用AND串联起来多个条件
+  std::vector<OrderSqlNode>     orders;      ///< Order-requirements
 };
 
 /**
@@ -268,6 +278,12 @@ struct SetVariableSqlNode
 {
   std::string name;
   Value       value;
+};
+
+struct OrderSqlNode
+{
+  RelAttrSqlNode rel_attr;
+  OrderType      order_type = OrderType::ORDER_ASC;
 };
 
 class ParsedSqlNode;

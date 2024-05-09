@@ -16,6 +16,7 @@ See the Mulan PSL v2 for more details. */
 
 #include <string>
 #include "sql/parser/date.h"
+#include "sql/parser/comp_op.h"
 
 /**
  * @brief 属性的类型
@@ -68,6 +69,8 @@ public:
   std::string to_string() const;
 
   int compare(const Value &other) const;
+  bool compare(const CompOp &comp_op, const Value &other) const;
+  bool type_cast(const AttrType target);
 
   const char *data() const;
   int         length() const { return length_; }
