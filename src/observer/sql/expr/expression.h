@@ -187,6 +187,7 @@ private:
 class ComparisonExpr : public Expression
 {
 public:
+  ComparisonExpr(CompOp comp, Expression *left, Expression *right);
   ComparisonExpr(CompOp comp, std::unique_ptr<Expression> left, std::unique_ptr<Expression> right);
   virtual ~ComparisonExpr();
 

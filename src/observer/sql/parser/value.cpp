@@ -18,6 +18,9 @@ See the Mulan PSL v2 for more details. */
 #include "sql/parser/date.h"
 #include "common/log/log.h"
 #include <sstream>
+#include "common/lang/comparator.h"
+#include "sql/expr/expression.h"
+#include <regex>
 
 const char *ATTR_TYPE_NAME[] = {"undefined", "chars", "ints", "dates", "floats", "booleans"};
 
@@ -217,6 +220,69 @@ int Value::compare(const Value &other) const
   return -1;  // TODO return rc?
 }
 
+RC Value::compare(const Value &other, int &result) const
+{
+  RC rc = RC::SUCCESS;
+  if (this->attr_type_ == other.attr_type_) {
+    switch (this->attr_type_) {
+      case INTS: {
+        result = common::compare_int((void *)&this->num_value_.int_value_, (void *)&other.num_value_.int_value_);
+      } break;
+      case FLOATS: {
+        result = common::compare_float((void *)&this->num_value_.float_value_, (void *)&other.num_value_.float_value_);
+      } break;
+      case CHARS: {
+        result = common::compare_string((void *)this->str_value_.c_str(),
+            this->str_value_.length(),
+            (void *)other.str_value_.c_str(),
+            other.str_value_.length());
+      } break;
+      case BOOLEANS: {
+        result = common::compare_int((void *)&this->num_value_.bool_value_, (void *)&other.num_value_.bool_value_);
+      }
+      case DATES: {
+         Date a = get_date();
+        if(Date::compare_date(&a, &other.num_value_.date_value_))
+          result = 1;
+      } break;
+      default: {
+        LOG_WARN("unsupported type: %d", this->attr_type_);
+        rc = RC::VALUE_COMPERR;
+      }
+      }} else if (this->attr_type_ == INTS && other.attr_type_ == FLOATS) {
+      float this_data = this->num_value_.int_value_;
+      if(common::compare_float((void *)&this_data, (void *)&other.num_value_.float_value_))
+        result = 1;
+    } else if (this->attr_type_ == FLOATS && other.attr_type_ == INTS) {
+      float other_data = other.num_value_.int_value_;
+      if(common::compare_float((void *)&this->num_value_.float_value_, (void *)&other_data))
+        result = 1;
+  } else if (this->attr_type_ == CHARS && other.attr_type_ == DATES) {
+      Date a = get_date();
+      if(Date::compare_date(&a, &other.num_value_.date_value_))
+        result = 1;
+    } else if (this->attr_type_ == DATES && other.attr_type_ == CHARS) {
+      Date b = other.get_date();
+      if( Date::compare_date(&num_value_.date_value_, &b))
+        result = 1;
+    }
+    LOG_WARN("not supported");
+  // } else if (this->attr_type_ != NULL_TYPE && other.attr_type_ == NULL_TYPE) {
+  //   result = 1;
+  // } else if (this->attr_type_ == NULL_TYPE && other.attr_type_ != NULL_TYPE) {
+  //   result = -1;
+  // } else if (this->attr_type_ == DATES || other.attr_type_ == DATES) {
+  //   return RC::VALUE_COMPERR;
+  // } else { 
+  //   // all to floats
+  //   float this_float, other_float;
+  //   this_float = this->get_float();
+  //   other_float = other.get_float();
+  //   result = common::compare_float((void *)&this_float, (void *)&other_float);
+  // }
+  return rc;
+}
+
 int Value::get_int() const
 {
   switch (attr_type_) {
@@ -344,4 +410,88 @@ Date Value::get_date() const {
   case CHARS: return Date(str_value_);
   default: return Date(-1);
   }
+}
+
+
+RC Value::compare_op(const Value &other, CompOp op, bool &result) const {
+  RC rc = RC::SUCCESS;
+ 
+  if (op <= CompOp::GREAT_THAN && op >= CompOp::EQUAL_TO) {
+
+    int cmp_result;
+    rc = compare(other, cmp_result); 
+
+    switch (op) {
+    case EQUAL_TO: {
+      result = (0 == cmp_result);
+    } break;
+    case LESS_EQUAL: {
+      result = (cmp_result <= 0);
+    } break;
+    case NOT_EQUAL: {
+      result = (cmp_result != 0);
+    } break;
+    case LESS_THAN: {
+      result = (cmp_result < 0);
+    } break;
+    case GREAT_EQUAL: {
+      result = (cmp_result >= 0);
+    } break;
+    case GREAT_THAN: {
+      result = (cmp_result > 0);
+    } break;
+    default: 
+      assert(0);
+    }
+    return rc;
+  }
+
+
+  if (op == CompOp::LIKE_OP || op == CompOp::NOT_LIKE_OP) {
+    if (this->attr_type_ != CHARS || other.attr_type_ != CHARS) { return RC::VALUE_COMPERR; }
+    rc = like(other, result);
+    if (op == CompOp::NOT_LIKE_OP) result = !result;
+    return rc;
+  }
+  return rc;
+}
+
+RC Value::like(const Value &other, bool &result) const {
+  RC rc = RC::SUCCESS;
+  if (this->attr_type_ != CHARS || other.attr_type_ != CHARS) {
+    result = false;
+    return rc;
+  }
+  result = like(this->to_string(), other.to_string());
+  return rc;
+}
+
+bool Value::like(const std::string &column, const std::string &pattern) {
+  int m = column.length();
+  int n = pattern.length();
+
+  // dp[i][j] 表示 column 的前 i 个字符与 pattern 的前 j 个字符是否匹配
+  std::vector<std::vector<bool>> dp(m + 1, std::vector<bool>(n + 1, false));
+
+  // 两个空字符串是匹配的
+  dp[0][0] = true;
+
+  // 初始化第一行
+  for (int j = 1; j <= n; ++j) {
+      if (pattern[j-1] == '%') {
+          dp[0][j] = dp[0][j-1];
+      }
+  }
+
+  for (int i = 1; i <= m; ++i) {
+      for (int j = 1; j <= n; ++j) {
+          if (pattern[j-1] == column[i-1] || pattern[j-1] == '_') {
+              dp[i][j] = dp[i-1][j-1];
+          } else if (pattern[j-1] == '%') {
+              dp[i][j] = dp[i-1][j] || dp[i][j-1];
+          }
+      }
+  }
+
+  return dp[m][n];
 }

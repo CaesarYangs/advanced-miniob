@@ -76,6 +76,7 @@ RC ExecuteStage::handle_request_with_physical_operator(SQLStageEvent *sql_event)
           case AGGRE_NONE: {
             if (with_table_name) {
               schema.append_cell(field.table_name(), field.field_name());
+              //加入一个写入alias的初始化函数
             } else {
               schema.append_cell(field.field_name());
             }

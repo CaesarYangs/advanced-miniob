@@ -76,6 +76,13 @@ RC SqlTaskHandler::handle_sql(SQLStageEvent *sql_event)
     return rc;
   }
 
+  rc = resolve_stage_.handle_alias(sql_event);
+  LOG_TRACE("handle_alias AFTER>>>>>>>rc=%s", strrc(rc));
+  if (OB_FAIL(rc)) {
+    LOG_TRACE("failed to handle alias. rc=%s", strrc(rc));
+    return rc;
+  }
+
   rc = resolve_stage_.handle_request(sql_event);
   if (OB_FAIL(rc)) {
     LOG_TRACE("failed to do resolve. rc=%s", strrc(rc));

@@ -1,4 +1,4 @@
-/* A Bison parser, made by GNU Bison 3.8.2.  */
+/* A Bison parser, made by GNU Bison 3.8.  */
 
 /* Bison interface for Yacc-like parsers in C
 
@@ -104,12 +104,15 @@ extern int yydebug;
     AVG = 305,                     /* AVG  */
     MIN = 306,                     /* MIN  */
     MAX = 307,                     /* MAX  */
-    NUMBER = 308,                  /* NUMBER  */
-    FLOAT = 309,                   /* FLOAT  */
-    ID = 310,                      /* ID  */
-    AGGRE_ATTR = 311,              /* AGGRE_ATTR  */
-    SSS = 312,                     /* SSS  */
-    UMINUS = 313                   /* UMINUS  */
+    LIKE = 308,                    /* LIKE  */
+    NOT_LIKE = 309,                /* NOT_LIKE  */
+    AS = 310,                      /* AS  */
+    NUMBER = 311,                  /* NUMBER  */
+    FLOAT = 312,                   /* FLOAT  */
+    ID = 313,                      /* ID  */
+    AGGRE_ATTR = 314,              /* AGGRE_ATTR  */
+    SSS = 315,                     /* SSS  */
+    UMINUS = 316                   /* UMINUS  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -118,7 +121,7 @@ extern int yydebug;
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 109 "yacc_sql.y"
+#line 112 "yacc_sql.y"
 
   ParsedSqlNode *                   sql_node;
   ConditionSqlNode *                condition;
@@ -141,8 +144,12 @@ union YYSTYPE
   int                               number;
   int opt_unique;
   float                             floats;
+  
+  RelAttrSqlNode *                  alias_attr;  
+  std::pair<std::string, std::string> *   alias_id;
+  std::vector<std::pair<std::string, std::string>> *  alias_id_list;
 
-#line 146 "yacc_sql.hpp"
+#line 153 "yacc_sql.hpp"
 
 };
 typedef union YYSTYPE YYSTYPE;

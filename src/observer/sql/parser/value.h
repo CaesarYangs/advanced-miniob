@@ -16,6 +16,11 @@ See the Mulan PSL v2 for more details. */
 
 #include <string>
 #include "sql/parser/date.h"
+#include <vector>
+#include <common/rc.h>
+#include <common/enum.h>
+
+
 
 /**
  * @brief 属性的类型
@@ -68,6 +73,10 @@ public:
   std::string to_string() const;
 
   int compare(const Value &other) const;
+  RC compare(const Value &other, int &result) const;
+  RC compare_op(const Value &other, CompOp op, bool &result) const;
+  RC like(const Value &other, bool &result) const;
+  static bool like(const std::string &column, const std::string &pattern);
 
   const char *data() const;
   int         length() const { return length_; }
@@ -90,6 +99,7 @@ public:
   float       get_float() const;
   std::string get_string() const;
   bool        get_boolean() const;
+
 
 private:
   AttrType attr_type_ = UNDEFINED;

@@ -77,44 +77,45 @@ RC CastExpr::try_get_value(Value &value) const
 
 ////////////////////////////////////////////////////////////////////////////////
 
+ComparisonExpr::ComparisonExpr(CompOp comp, Expression *left, Expression *right)
+    : comp_(comp), left_(left), right_(right)
+{}
+
 ComparisonExpr::ComparisonExpr(CompOp comp, unique_ptr<Expression> left, unique_ptr<Expression> right)
     : comp_(comp), left_(std::move(left)), right_(std::move(right))
 {}
 
-ComparisonExpr::~ComparisonExpr() {}
+ComparisonExpr::~ComparisonExpr()
+{}
 
 RC ComparisonExpr::compare_value(const Value &left, const Value &right, bool &result) const
 {
-  RC  rc         = RC::SUCCESS;
-  int cmp_result = left.compare(right);
-  result         = false;
-  switch (comp_) {
-    case EQUAL_TO: {
-      result = (0 == cmp_result);
-    } break;
-    case LESS_EQUAL: {
-      result = (cmp_result <= 0);
-    } break;
-    case NOT_EQUAL: {
-      result = (cmp_result != 0);
-    } break;
-    case LESS_THAN: {
-      result = (cmp_result < 0);
-    } break;
-    case GREAT_EQUAL: {
-      result = (cmp_result >= 0);
-    } break;
-    case GREAT_THAN: {
-      result = (cmp_result > 0);
-    } break;
-    default: {
-      LOG_WARN("unsupported comparison. %d", comp_);
-      rc = RC::INTERNAL;
-    } break;
-  }
-
-  return rc;
+  return left.compare_op(right, comp_, result);
 }
+
+
+// RC ComparisonExpr::try_get_value(Value &cell) const
+// {
+//   Value lv, rv;
+//   RC rc = RC::SUCCESS;
+//   rc = left_->try_get_value(lv);
+//   if (rc != RC::SUCCESS) {
+//     return rc;
+//   }
+//   rc = right_->try_get_value(rv);
+//   if (rc != RC::SUCCESS) {
+//     return rc;
+//   }
+//   bool result = false;
+
+//   rc = lv.compare_op(rv, comp_, result);
+//   if (rc != RC::SUCCESS) {
+//     LOG_WARN("compare op error %s", strrc(rc));
+//     return rc;
+//   }
+//   cell.set_boolean(result);
+//   return func_impl(cell);
+// }
 
 RC ComparisonExpr::try_get_value(Value &cell) const
 {

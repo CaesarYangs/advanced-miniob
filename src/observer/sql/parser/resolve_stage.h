@@ -15,8 +15,11 @@ See the Mulan PSL v2 for more details. */
 #pragma once
 
 #include "common/rc.h"
+#include <memory>
+#include <map>
 
 class SQLStageEvent;
+class SelectSqlNode;
 
 /**
  * @brief 执行Resolve，将解析后的SQL语句，转换成各种Stmt(Statement), 同时会做错误检查
@@ -26,4 +29,12 @@ class ResolveStage
 {
 public:
   RC handle_request(SQLStageEvent *sql_event);
+  RC handle_alias(SQLStageEvent *sql_event);
+
+private:
+   RC alias_pre_process(SelectSqlNode *select_sql);
+   std::map<std::string, std::string> field2alias_mp;//属性和别名的映射
+   std::map<std::string, int> field_exis; //属性是否存在别名
+   std::map<std::string, int> alias_exis;  
+   std::map<std::string, std::string> table2alias_mp; 
 };

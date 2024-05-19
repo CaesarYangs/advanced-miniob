@@ -104,6 +104,9 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
         AVG
         MIN
         MAX
+        LIKE
+        NOT_LIKE
+        AS
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
 %union {
@@ -128,6 +131,10 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   int                               number;
   int opt_unique;
   float                             floats;
+  
+  RelAttrSqlNode *                  alias_attr;  
+  std::pair<std::string, std::string> *   alias_id;
+  std::vector<std::pair<std::string, std::string>> *  alias_id_list;
 }
 
 %token <number> NUMBER
@@ -156,7 +163,10 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <condition_list>      condition_list
 /* %type <rel_attr_list>       select_attr */
 %type <rel_attr_list>       selector
-%type <relation_list>       rel_list
+
+%type <alias_id>            alias_id
+%type <alias_id_list>       alias_id_list
+
 %type <relation_list>       attr_list
 %type <aggre_attr_list>     aggre_attr_list
 %type <expression>          expression
@@ -469,20 +479,29 @@ update_stmt:      /*  update 语句的语法解析树*/
     }
     ;
 select_stmt:        /*  select 语句的语法解析树*/
-    SELECT selector FROM rel_list where
+    SELECT selector FROM alias_id alias_id_list where
     {
       $$ = new ParsedSqlNode(SCF_SELECT);
       if ($2 != nullptr) {
         $$->selection.attributes.swap(*$2);
         delete $2;
       }
-      if ($4 != nullptr) {
-        $$->selection.relations.swap(*$4);
-        delete $4;
+      if ($5) {
+      for (auto p : *$5) {
+        $$->selection.relations.emplace_back(p.first);
+        $$->selection.table_alias.emplace_back(p.second);
       }
-      if ($5 != nullptr) {
-        $$->selection.conditions.swap(*$5);
-        delete $5;
+      }
+      $$->selection.relations.emplace_back($4->first);
+      $$->selection.table_alias.emplace_back($4->second);
+      
+      std::reverse($$->selection.relations.begin(), $$->selection.relations.end());
+      std::reverse($$->selection.table_alias.begin(), $$->selection.table_alias.end());
+      delete $4;
+      delete $5;
+      if ($6 != nullptr) {
+        $$->selection.conditions.swap(*$6);
+        delete $6;
       }
     }
     ;
@@ -499,6 +518,43 @@ selector:
       delete $3; 
     }
     ;
+
+alias_id:
+    rel_name {
+      $$ = new std::pair<std::string, std::string>;
+      $$->first = $1;
+      free($1);
+    }
+    | rel_name AS rel_name {
+      $$ = new std::pair<std::string, std::string>;
+      $$->first = $1;
+      $$->second = $3;
+      free($1);
+      free($3);      
+    }
+    | rel_name rel_name {
+      $$ = new std::pair<std::string, std::string>;
+      $$->first = $1;
+      $$->second = $2;
+      free($1);
+      free($2);      
+    };
+alias_id_list:
+  /* empty */
+  {
+    $$ = nullptr;
+  }
+  | COMMA alias_id alias_id_list {
+    if ($3 != nullptr) {
+      $$ = $3;
+    } else {
+      $$ = new std::vector<std::pair<std::string, std::string>>;
+    }
+    $$->emplace_back(*$2);
+    delete $2;
+  }
+  ;  
+
 /**
  * @description: 包含了 `COUNT(*), id` 这种情况, 需要特判
  * @return {RelAttrSqlNode*}
@@ -538,6 +594,12 @@ rel_attr:
       $$ = new RelAttrSqlNode{"", $1};
       free($1);
     }
+    | attr_name AS attr_name
+    {
+      $$ = new RelAttrSqlNode{"", $1,$3};
+      free($1);
+      free($3);
+    }
     | rel_name DOT attr_name
     {
       $$ = new RelAttrSqlNode{$1, $3};
@@ -559,22 +621,6 @@ attr_list:
     }
     ;
 
-rel_list:
-    /* empty */
-    {
-      $$ = nullptr;
-    }
-    | rel_name
-    {
-      $$ = new std::vector<std::string>{$1};
-      free($1); 
-    }
-    | rel_list COMMA rel_name
-    {
-      $$->emplace_back($3); 
-      free($3);
-    }
-    ;
 where:
     /* empty */
     {
@@ -712,6 +758,8 @@ comp_op:
     | LE { $$ = LESS_EQUAL; }
     | GE { $$ = GREAT_EQUAL; }
     | NE { $$ = NOT_EQUAL; }
+    | LIKE { $$ = LIKE_OP;}
+    | NOT_LIKE{ $$ = NOT_LIKE_OP;}
     ;
 
 aggre_type:

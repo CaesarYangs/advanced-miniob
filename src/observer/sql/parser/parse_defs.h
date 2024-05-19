@@ -78,23 +78,11 @@ struct RelAttrSqlNode
   // std::string attribute_name;  ///< attribute name              属性名
   std::string   relation_name;   ///< relation name (may be NULL) 表名
   std::string   attribute_name;  ///< attribute name              属性名
+  std::string alias;  ///< relation name (may be NULL) 属性名别名
   AggreTypeNode aggretion_node;
 };
 
-/**
- * @brief 描述比较运算符
- * @ingroup SQLParser
- */
-enum CompOp
-{
-  EQUAL_TO,     ///< "="
-  LESS_EQUAL,   ///< "<="
-  NOT_EQUAL,    ///< "<>"
-  LESS_THAN,    ///< "<"
-  GREAT_EQUAL,  ///< ">="
-  GREAT_THAN,   ///< ">"
-  NO_OP
-};
+
 
 /**
  * @brief 表示一个条件比较
@@ -130,9 +118,10 @@ struct ConditionSqlNode
 
 struct SelectSqlNode
 {
-  std::vector<RelAttrSqlNode>   attributes;  ///< attributes in select clause
+  std::vector<RelAttrSqlNode>   attributes;  ///< attributes in select clause  描述一个属性
   std::vector<std::string>      relations;   ///< 查询的表
   std::vector<ConditionSqlNode> conditions;  ///< 查询条件，使用AND串联起来多个条件
+  std::vector<std::string>        table_alias;  //查询表的别名
 };
 
 /**

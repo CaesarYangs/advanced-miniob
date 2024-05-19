@@ -57,3 +57,116 @@ RC ResolveStage::handle_request(SQLStageEvent *sql_event)
 
   return rc;
 }
+
+RC ResolveStage::alias_pre_process(SelectSqlNode *select_sql)
+{
+   
+  if (!select_sql) return RC::SUCCESS;
+
+  if (select_sql->attributes.size() == 0) {
+    LOG_WARN("select attribute size is zero");
+    return RC::INVALID_ARGUMENT;
+  }
+
+  RC rc = RC::SUCCESS; 
+  std::map<std::string, std::string> table2alias_map_tmp; ///< alias-->table_name
+  std::map<std::string, int> alias_exist_tmp;   // 是否存在这个alias,防止重复
+
+  LOG_TRACE("alias_pre_process=>>>>>>>>>>");
+  for (size_t i= 0; i< select_sql->relations.size(); i++)
+  {
+    if (select_sql->table_alias[i].empty()){ //当前表没有别名（可能在后面的语句中定义别名
+      if (!alias_exist_tmp[select_sql->relations[i]]){ //如果alias_exit中标记当前表没有alias
+        if (!alias_exis[select_sql->relations[i]]) continue;  //如果当前表确实没有alias
+      }
+      if (alias_exist_tmp[select_sql->relations[i]]){
+        select_sql->relations[i] = table2alias_map_tmp[select_sql->relations[i]]; 
+        continue;
+      }
+      if (alias_exis[select_sql->relations[i]]){
+        select_sql->relations[i] = table2alias_mp[select_sql->relations[i]]; 
+        continue;
+      }
+    }
+    
+    if (alias_exist_tmp[select_sql->table_alias[i]]){
+      return RC::SAME_ALIAS;
+    }
+    table2alias_map_tmp[select_sql->table_alias[i]] = select_sql->relations[i];
+    alias_exist_tmp[select_sql->table_alias[i]] = 1;
+
+    if (alias_exis[select_sql->table_alias[i]])continue;
+    
+    table2alias_mp[select_sql->table_alias[i]] = select_sql->relations[i];
+    alias_exis[select_sql->table_alias[i]] = 1;
+  }
+  LOG_TRACE("table_name=>>>>>>>>>>%s   alias=>>>>>>%s", select_sql->relations[0],select_sql->table_alias[0]);
+
+
+
+  for (RelAttrSqlNode &node : select_sql->attributes)
+  {
+      if (!field_exis[node.alias] && !node.alias.empty() && node.attribute_name != "*"){ //属性不存在别名，别名空，或者表示all
+        field2alias_mp[node.alias] = node.attribute_name;
+        field_exis[node.alias] = 1;
+      }
+      if (alias_exist_tmp[node.relation_name]){ //表有别名
+        node.relation_name = table2alias_map_tmp[node.relation_name];
+        LOG_TRACE("2if=>>>>>>>>>>%s", node.relation_name);
+        continue;
+      }
+      if (alias_exis[node.relation_name]){ //表有别名
+        node.relation_name = table2alias_mp[node.relation_name]; //属性的表名要更换成别名
+        LOG_TRACE("3if=>>>>>>>>>>%s", node.relation_name);
+      }
+      
+  }
+
+  for (ConditionSqlNode &con_node : select_sql->conditions)
+  {
+
+    RelAttrSqlNode &node =con_node.left_attr;
+    if (!field_exis[node.alias] && !node.alias.empty() && node.attribute_name != "*"){ //属性不存在别名，别名空，或者表示all
+      field2alias_mp[node.alias] = node.attribute_name;
+      field_exis[node.alias] = 1;
+    }
+    if (alias_exist_tmp[node.relation_name]){ //表有别名
+      node.relation_name = table2alias_map_tmp[node.relation_name];
+      LOG_TRACE("2if=>>>>>>>>>>%s", node.relation_name);
+      continue;
+    }
+    if (alias_exis[node.relation_name]){ //表有别名
+      node.relation_name = table2alias_mp[node.relation_name]; //属性的表名要更换成别名
+      LOG_TRACE("3if=>>>>>>>>>>%s", node.relation_name);
+    }
+  }
+
+
+  return RC::SUCCESS;
+}
+
+RC ResolveStage::handle_alias(SQLStageEvent *sql_event) {
+  RC rc = RC::SUCCESS;
+  field2alias_mp.clear();
+  field_exis.clear();
+  alias_exis.clear();
+  table2alias_mp.clear();
+
+  if (sql_event->sql_node()) { 
+    SessionEvent *session_event = sql_event->session_event();
+    SqlResult    *sql_result    = session_event->sql_result();
+    SelectSqlNode* select_sql = nullptr;
+    
+    if (sql_event->sql_node()->flag == SqlCommandFlag::SCF_SELECT)
+      select_sql = &sql_event->sql_node()->selection;
+    
+
+    rc = alias_pre_process(select_sql);
+    if (OB_FAIL(rc)) {
+      LOG_TRACE("failed to do select pre-process. rc=%s", strrc(rc));
+      sql_result->set_return_code(rc);
+      return rc;
+    }
+  }
+  return rc;
+}
