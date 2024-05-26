@@ -29,6 +29,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/table/table_meta.h"
 #include "storage/trx/trx.h"
 #include "storage/field/field.h"
+#include <iomanip>
 
 Table::~Table()
 {
@@ -294,8 +295,16 @@ RC Table::get_record(const RID &rid, Record &record)
     LOG_WARN("failed to visit record. rid=%s, table=%s, rc=%s", rid.to_string().c_str(), name(), strrc(rc));
     return rc;
   }
-
   record.set_data_owner(record_data, record_size);
+  LOG_DEBUG("[[[[[[[[TEST]]]]]]]] get_record end data --- record_len: %d",record.len());
+
+  // 打印记录的原始数据
+  std::stringstream ss;
+  for (int i = 0; i < record.len(); i++) {
+    ss << std::hex << std::setw(2) << std::setfill('0') << (int)record.data()[i] << " ";
+  }
+  LOG_DEBUG("Raw record data: %s", ss.str().c_str());
+
   return rc;
 }
 
@@ -579,7 +588,7 @@ RC Table::create_index(Trx *trx, int unique, std::vector<const FieldMeta *> fiel
     if (rc != RC::SUCCESS) {
       LOG_WARN("failed to insert record into index while creating index. table=%s, index=%s, rc=%s",
                name(), index_name, strrc(rc));
-      
+
       // data_buffer_pool_->close_file();
       data_buffer_pool_->drop_file(index_file.c_str());  // 删除临时创建的索引文件 此处连续操作会有内存泄露bug
       // data_buffer_pool_ = nullptr;
@@ -637,7 +646,7 @@ RC Table::delete_record(const Record &record)
   RC rc = RC::SUCCESS;
   // for (Index *index : indexes_) {
   //   rc = index->delete_entry(record.data(), &record.rid());
-  //   ASSERT(RC::SUCCESS == rc, 
+  //   ASSERT(RC::SUCCESS == rc,
   //          "failed to delete entry from index. table name=%s, index name=%s, rid=%s, rc=%s",
   //          name(), index->index_meta().name(), record.rid().to_string().c_str(), strrc(rc));
   // }

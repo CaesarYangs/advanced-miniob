@@ -28,6 +28,7 @@ class ExplainStmt;
 class UpdateStmt;
 class OrderByStmt;
 class LogicalOperator;
+class AnalyzeStmt;
 
 class LogicalPlanGenerator
 {
@@ -46,4 +47,5 @@ private:
   RC create_plan(DeleteStmt *delete_stmt, std::unique_ptr<LogicalOperator> &logical_operator);
   RC create_plan(ExplainStmt *explain_stmt, std::unique_ptr<LogicalOperator> &logical_operator);
   RC create_plan(OrderByStmt *order_by_stmt, std::unique_ptr<LogicalOperator> &logical_operator);
+  RC create_plan(AnalyzeStmt *analyze_stmt, std::unique_ptr<LogicalOperator> &logical_operator);
 };

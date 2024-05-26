@@ -29,9 +29,9 @@ class Expression;
 
 enum OrderType
 {
-  NONE,  // 无ORDER要求
-  ORDER_ASC,   // 升序
-  ORDER_DESC   // 降序
+  NONE,       // 无ORDER要求
+  ORDER_ASC,  // 升序
+  ORDER_DESC  // 降序
 };
 
 struct OrderSqlNode;
@@ -165,6 +165,17 @@ struct InsertSqlNode
 {
   std::string        relation_name;  ///< Relation to insert into
   std::vector<Value> values;         ///< 要插入的值
+};
+
+/**
+ * @brief 描述一个analyze语句
+ * @ingroup SQLParser
+ * @details 于Selects类似，也做了很多简化
+ */
+struct AnalyzeSqlNode
+{
+  std::string              relation_name;   ///< Relation to insert into
+  std::vector<std::string> attribute_name;  ///< 要分析的列名称
 };
 
 /**
@@ -321,6 +332,7 @@ enum SqlCommandFlag
   SCF_ERROR = 0,
   SCF_CALC,
   SCF_SELECT,
+  SCF_ANALYZE,
   SCF_INSERT,
   SCF_UPDATE,
   SCF_DELETE,
@@ -364,6 +376,7 @@ public:
   LoadDataSqlNode     load_data;
   ExplainSqlNode      explain;
   SetVariableSqlNode  set_variable;
+  AnalyzeSqlNode      analyze_table;
 
 public:
   ParsedSqlNode();
@@ -490,7 +503,7 @@ public:
           case AGGRE_AVG: {
             if (i_sum % i_count == 0) {
               value_.set_int(i_sum / i_count);
-            } else {  
+            } else {
               // 如果结果为小数, 需要转化为FLOAT类型的value
               value_.set_type(FLOATS);
               value_.set_float(static_cast<float>(i_sum) / i_count);

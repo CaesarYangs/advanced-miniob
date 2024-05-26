@@ -56,6 +56,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 //标识tokens
 %token  SEMICOLON
         CREATE
+        ANALYZE
         DROP
         TABLE
         TABLES
@@ -173,6 +174,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <order_node>          order_node
 %type <order_list>          order_list
 %type <sql_node>            calc_stmt
+%type <sql_node>            analyze_stmt
 %type <sql_node>            select_stmt
 %type <sql_node>            insert_stmt
 %type <sql_node>            update_stmt
@@ -214,6 +216,7 @@ commands: command_wrapper opt_semicolon  //commands or sqls. parser starts here.
 command_wrapper:
     calc_stmt
   | select_stmt
+  | analyze_stmt
   | insert_stmt
   | update_stmt
   | delete_stmt
@@ -404,6 +407,23 @@ type:
     | FLOAT_T  { $$=FLOATS; }
     | DATE_T  { $$=DATES; }
     ;
+
+analyze_stmt:        /* ANALYZE TABLE 语句的语法解析树 */
+    ANALYZE TABLE ID LBRACE id_list RBRACE
+    {
+      $$ = new ParsedSqlNode(SCF_ANALYZE);
+      $$->analyze_table.relation_name = $3;
+      $$->analyze_table.attribute_name = *$5; // 使用 id_list 存储多个列名
+      free($3);
+    }
+    | ANALYZE TABLE ID 
+    {
+      $$ = new ParsedSqlNode(SCF_ANALYZE);
+      $$->analyze_table.relation_name = $3;
+      free($3);
+    }
+    ;
+
 insert_stmt:        /*insert   语句的语法解析树*/
     INSERT INTO ID VALUES LBRACE value value_list RBRACE 
     {

@@ -43,7 +43,7 @@ public:
 
   RC insert_record(Table *table, Record &record) override;
   RC update_record(Table *table, Record &record);
-  RC update_record(Table *table, Field* field, const Value* value ,Record &record);
+  RC update_record(Table *table, Field *field, const Value *value, Record &record);
   RC delete_record(Table *table, Record &record) override;
   RC visit_record(Table *table, Record &record, bool readonly) override;
   RC start_if_need() override;

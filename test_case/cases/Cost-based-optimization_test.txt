@@ -25,3 +25,16 @@ SELECT * FROM Book,Customer,Publisher WHERE Book.id < 200050 AND Publisher.id < 
 SELECT * FROM Publisher,Book WHERE Book.publisher_id = Publisher.id AND Book.id < 200100 AND Publisher.id < 100010;
 要求优化后性能提升比例应不少于20%。
 性能提升比例 = ((Tbefore - Tafter)/Tbefore )×100%,其中Tbefore表示仅完成谓词下推优化的执行时间，Tafter表示完成谓词下推合并基于代价优化后的执行时间，这里基于代价的优化包括传统的cost-based-optimization和AI-enabled-optimization的两种方式。
+
+
+CREATE TABLE relstatistics(table_name char(16),column_name char(16),bucket_num int, histogtram char(512),record_num int)
+
+CREATE TABLE Publisher (id int(10) ,name char(100) ,nation char(3));
+
+insert into Publisher values(1,'hello','CHN')
+
+insert into Publisher values(2,'bello','USA')
+
+SELECT * FROM Publisher
+
+ANALYZE TABLE Publisher(id,name,nation);
