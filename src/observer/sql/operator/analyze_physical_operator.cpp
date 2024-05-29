@@ -3,8 +3,20 @@
 #include "storage/table/table.h"
 #include "storage/trx/trx.h"
 #include <iomanip>
+#include <vector>
+#include <algorithm>
+#include <random>
+#include <chrono>
+#include <unordered_map>
+#include <sstream>
 
 using namespace std;
+
+std::string        buildHistogram(const std::vector<std::vector<Value>> &data_matrix, int num_buckets);
+std::vector<Value> reservoirSampling(const std::vector<std::vector<Value>> &data_matrix, int sample_size);
+int                calculateSampleSize(int num_records);
+std::string        storeHistogram(
+           int num_buckets, std::vector<int> &histogram, std::vector<double> &bucket_boundaries, int num_records);
 
 AnalyzePhysicalOperator::AnalyzePhysicalOperator(
     Table *analyze_table, Table *table, std::vector<Field *> analyze_fields)
@@ -50,18 +62,6 @@ RC AnalyzePhysicalOperator::open(Trx *trx)
     LOG_DEBUG("[[[[TEST]]]] name:%s, offset:%d",i.name(),i.offset());
   }
 
-  // 3. insert into analyze table. 插入到统一的分析表中
-  //   Record record;
-  //   RC     rc = analyze_table_->make_record(static_cast<int>(analyzed_values.size()), analyzed_values[0],record);
-  //   if (rc != RC::SUCCESS) {
-  //     LOG_WARN("failed to make record. rc=%s", strrc(rc));
-  //     return rc;
-  //   }
-
-  //   rc = trx->insert_record(analyze_table_, record);
-  //   if (rc != RC::SUCCESS) {
-  //     LOG_WARN("failed to insert record by transaction. rc=%s", strrc(rc));
-  //   }
   return RC::SUCCESS;
 }
 
@@ -96,7 +96,6 @@ RC AnalyzePhysicalOperator::next()
 
     std::vector<Value> tuple_value;
     std::string        str;  // 在switch语句之前声明
-    // TODO: 解决此处hardcode问题
     for (auto field : analyze_field_metas_) {
       Value v;
       //   LOG_DEBUG("Field Stat: name:%s, offset:%d, len:%d",field.name(),field.offset(),field.len());
@@ -141,7 +140,47 @@ RC AnalyzePhysicalOperator::next()
     LOG_DEBUG("TEST: record_len: %d,rid: %s",record.len(),record.rid().to_string().c_str());
   }
 
+  // 数据读取完毕
   LOG_DEBUG("record size: %d",data_matrix_.size());
+
+  // TODO 数据处理部分 —— 逐个列生成histogram
+  for (int i = 0; i < analyze_fields_.size(); i++) {
+    int         num_bucket = 10;
+    std::string histogram  = buildHistogram(data_matrix_, num_bucket);
+
+    // 分析好的数据插入到统一的记录表
+    int                res_record_size = analyze_table_->table_meta().record_size();
+    int                res_record_num  = analyze_table_->table_meta().field_num();
+    std::vector<Value> res_values;
+
+    Value v_table_name, v_column_name, v_bucket_num, v_histogtram, v_record_num;
+
+    // 准备数据到最终的分析表中
+    v_table_name.set_string(table_->name());
+    v_column_name.set_string(analyze_fields_[i]->field_name());
+    v_bucket_num.set_int(num_bucket);
+    v_histogtram.set_string(histogram.c_str());
+    v_record_num.set_int(data_matrix_.size());
+
+    res_values.push_back(v_table_name);
+    res_values.push_back(v_column_name);
+    res_values.push_back(v_bucket_num);
+    res_values.push_back(v_histogtram);
+    res_values.push_back(v_record_num);
+
+    // 创建record并写入
+    Record res_record;
+    rc = analyze_table_->make_record(static_cast<int>(res_record_num), res_values.data(), res_record);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("failed to make record. rc=%s", strrc(rc));
+      return rc;
+    }
+
+    rc = trx_->insert_record(analyze_table_, res_record);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("failed to insert record by transaction. rc=%s", strrc(rc));
+    }
+  }
 
   return RC::RECORD_EOF;
 }
@@ -152,4 +191,94 @@ RC AnalyzePhysicalOperator::close()
     children_[0]->close();
   }
   return RC::SUCCESS;
+}
+
+// 生成直方图部分
+std::string buildHistogram(const std::vector<std::vector<Value>> &data_matrix, int num_buckets)
+{
+  int                num_records = data_matrix.size();
+  int                sample_size = calculateSampleSize(num_records);
+  std::vector<Value> samples     = reservoirSampling(data_matrix, sample_size);
+  std::sort(samples.begin(), samples.end());
+
+  Value  min_value    = samples.front();
+  Value  max_value    = samples.back();
+  double value_range  = max_value.get_int() - min_value.get_int();
+  double bucket_width = value_range / num_buckets;
+
+  std::vector<double> bucket_boundaries(num_buckets + 1);
+  bucket_boundaries[0] = min_value.get_int();
+  for (int i = 1; i < num_buckets; ++i) {
+    double boundary = min_value.get_int() + i * bucket_width;
+    auto   it       = std::lower_bound(samples.begin(), samples.end(), Value(static_cast<int>(boundary)));
+    if (it != samples.end()) {
+      bucket_boundaries[i] = it->get_int();
+    } else {
+      bucket_boundaries[i] = max_value.get_int();
+    }
+  }
+  bucket_boundaries[num_buckets] = max_value.get_int();
+
+  std::vector<int> histogram(num_buckets, 0);
+  int              current_bucket = 0;
+  for (const Value &value : samples) {
+    while (current_bucket < num_buckets - 1 && value.get_int() >= bucket_boundaries[current_bucket + 1]) {
+      current_bucket++;
+    }
+    histogram[current_bucket]++;
+  }
+
+  std::string histogram_data = storeHistogram(num_buckets, histogram, bucket_boundaries, num_records);
+  return histogram_data;
+}
+
+int calculateSampleSize(int num_records)
+{
+  if (num_records <= 1000) {
+    return num_records;
+  } else if (num_records <= 10000) {
+    return 1000;
+  } else if (num_records <= 100000) {
+    return 5000;
+  } else {
+    return 10000;
+  }
+}
+
+std::vector<Value> reservoirSampling(const std::vector<std::vector<Value>> &data_matrix, int sample_size)
+{
+  std::vector<Value> samples;
+  int                num_records = data_matrix.size();
+
+  unsigned                           seed = std::chrono::system_clock::now().time_since_epoch().count();
+  std::default_random_engine         generator(seed);
+  std::uniform_int_distribution<int> distribution(0, num_records - 1);
+
+  for (int i = 0; i < sample_size; ++i) {
+    int index = distribution(generator);
+    samples.push_back(data_matrix[index][0]);
+  }
+
+  return samples;
+}
+
+void deleteExistingHistogram(const std::string &table_name, const std::string &column_name)
+{
+  // 删除已存在的直方图数据的逻辑,根据实际存储方式进行实现
+  // 例如,从数据库中删除对应表和列的直方图记录
+}
+
+std::string storeHistogram(
+    int num_buckets, std::vector<int> &histogram, std::vector<double> &bucket_boundaries, int num_records)
+{
+  std::stringstream ss;
+
+  for (int i = 0; i < num_buckets; ++i) {
+    ss << "(" << bucket_boundaries[i] << "," << bucket_boundaries[i + 1] << ")";
+    if (i < num_buckets - 1) {
+      ss << ",";
+    }
+  }
+
+  return ss.str();
 }

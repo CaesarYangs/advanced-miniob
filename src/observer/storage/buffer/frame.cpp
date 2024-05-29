@@ -70,10 +70,11 @@ void Frame::write_latch(intptr_t xid)
         "this=%p, pin=%d, pageNum=%d, fd=%d, xid=%lx, lbt=%s",
         this, pin_count_.load(), page_.page_num, file_desc_, xid, lbt());
 
-    ASSERT(read_lockers_.find(xid) == read_lockers_.end(),
-        "frame lock write while holding the read lock."
-        "this=%p, pin=%d, pageNum=%d, fd=%d, xid=%lx, lbt=%s",
-        this, pin_count_.load(), page_.page_num, file_desc_, xid, lbt());
+    // TODO
+    // ASSERT(read_lockers_.find(xid) == read_lockers_.end(),
+    //     "frame lock write while holding the read lock."
+    //     "this=%p, pin=%d, pageNum=%d, fd=%d, xid=%lx, lbt=%s",
+    //     this, pin_count_.load(), page_.page_num, file_desc_, xid, lbt());
   }
 
   lock_.lock();

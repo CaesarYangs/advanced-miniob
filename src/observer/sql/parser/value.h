@@ -51,6 +51,12 @@ public:
   explicit Value(Date val);
   explicit Value(bool val);
   explicit Value(const char *s, int len = 0);
+
+  bool operator<(const Value& other) const {
+    // 根据 Value 的实际数据类型进行比较
+    // 例如，如果 Value 包含一个 int 成员：
+    return this->get_int() < other.get_int(); 
+  }
   
 
   Value(const Value &other)            = default;
