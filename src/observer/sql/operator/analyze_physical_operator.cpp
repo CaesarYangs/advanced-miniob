@@ -12,11 +12,12 @@
 
 using namespace std;
 
-std::string        buildHistogram(const std::vector<std::vector<Value>> &data_matrix, int num_buckets);
-std::vector<Value> reservoirSampling(const std::vector<std::vector<Value>> &data_matrix, int sample_size);
-int                calculateSampleSize(int num_records);
-std::string        storeHistogram(
-           int num_buckets, std::vector<int> &histogram, std::vector<double> &bucket_boundaries, int num_records);
+std::string buildHistogram(const std::vector<std::vector<Value>> &data_matrix, int num_buckets, int sample_field);
+std::vector<Value> reservoirSampling(
+    const std::vector<std::vector<Value>> &data_matrix, int sample_size, int sample_field);
+int         calculateSampleSize(int num_records);
+std::string storeHistogram(
+    int num_buckets, std::vector<int> &histogram, std::vector<double> &bucket_boundaries, int num_records);
 
 AnalyzePhysicalOperator::AnalyzePhysicalOperator(
     Table *analyze_table, Table *table, std::vector<Field *> analyze_fields)
@@ -25,7 +26,6 @@ AnalyzePhysicalOperator::AnalyzePhysicalOperator(
 
 RC AnalyzePhysicalOperator::open(Trx *trx)
 {
-
   LOG_DEBUG("[[[[[[[[[[[AnalyzePhysicalOperator open start]]]]]]]]]]]");
   if (children_.empty()) {
     LOG_DEBUG("[[[[[[[[[[[lalala]]]]]]]]]]]");
@@ -143,10 +143,12 @@ RC AnalyzePhysicalOperator::next()
   // 数据读取完毕
   LOG_DEBUG("record size: %d",data_matrix_.size());
 
+  std::vector<std::vector<Value>> analyzed_value;  // 保存分析结果用的临时二维数组(临时生命周期)
+
   // TODO 数据处理部分 —— 逐个列生成histogram
   for (int i = 0; i < analyze_fields_.size(); i++) {
     int         num_bucket = 10;
-    std::string histogram  = buildHistogram(data_matrix_, num_bucket);
+    std::string histogram  = buildHistogram(data_matrix_, num_bucket, i);
 
     // 分析好的数据插入到统一的记录表
     int                res_record_size = analyze_table_->table_meta().record_size();
@@ -180,7 +182,13 @@ RC AnalyzePhysicalOperator::next()
     if (rc != RC::SUCCESS) {
       LOG_WARN("failed to insert record by transaction. rc=%s", strrc(rc));
     }
+
+    // 插入到临时二维数组
+    analyzed_value.push_back(res_values);
   }
+
+  table_->set_data_matrix(data_matrix_);       // 给Table对象设置全局数据内容
+  table_->set_analyzed_value(analyzed_value);  // 给Table对象设置全局分析结果
 
   return RC::RECORD_EOF;
 }
@@ -194,11 +202,11 @@ RC AnalyzePhysicalOperator::close()
 }
 
 // 生成直方图部分
-std::string buildHistogram(const std::vector<std::vector<Value>> &data_matrix, int num_buckets)
+std::string buildHistogram(const std::vector<std::vector<Value>> &data_matrix, int num_buckets, int sample_field)
 {
   int                num_records = data_matrix.size();
   int                sample_size = calculateSampleSize(num_records);
-  std::vector<Value> samples     = reservoirSampling(data_matrix, sample_size);
+  std::vector<Value> samples     = reservoirSampling(data_matrix, sample_size, sample_field);
   std::sort(samples.begin(), samples.end());
 
   Value  min_value    = samples.front();
@@ -245,7 +253,8 @@ int calculateSampleSize(int num_records)
   }
 }
 
-std::vector<Value> reservoirSampling(const std::vector<std::vector<Value>> &data_matrix, int sample_size)
+std::vector<Value> reservoirSampling(
+    const std::vector<std::vector<Value>> &data_matrix, int sample_size, int sample_field)
 {
   std::vector<Value> samples;
   int                num_records = data_matrix.size();
@@ -256,7 +265,7 @@ std::vector<Value> reservoirSampling(const std::vector<std::vector<Value>> &data
 
   for (int i = 0; i < sample_size; ++i) {
     int index = distribution(generator);
-    samples.push_back(data_matrix[index][0]);
+    samples.push_back(data_matrix[index][sample_field]);
   }
 
   return samples;

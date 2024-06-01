@@ -157,7 +157,6 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
       project_oper->add_child(std::move(table_oper));
     }
   }
-
   if (orderby_oper) {
     orderby_oper->add_child(std::move(project_oper));
     logical_operator.swap(orderby_oper);

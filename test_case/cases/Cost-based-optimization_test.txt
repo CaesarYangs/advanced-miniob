@@ -38,3 +38,6 @@ insert into Publisher values(2,'bello','USA')
 SELECT * FROM Publisher
 
 ANALYZE TABLE Publisher(id,name,nation);
+
+
+SELECT * FROM Book,Customer,Publisher WHERE Publisher.id < 100002 AND Customer.id < 300010 AND Book.id < 200050;
