@@ -109,6 +109,9 @@ public:
 
   const TableMeta &table_meta() const;
 
+  RC set_cost(int cost){ cost_ = cost;};
+  const int get_cost(){return cost_;};
+
   RC sync();
 
 private:
@@ -143,4 +146,5 @@ private:
   std::vector<Index *> indexes_;
   std::vector<std::vector<Value>> data_matrix_;  // ANALYZE得到的表全部数据，对象存储，若内存不够可改为指针
   std::vector<std::vector<Value>> analyzed_value_;  // ANALYZE得到的直方图
+  int cost_;
 };

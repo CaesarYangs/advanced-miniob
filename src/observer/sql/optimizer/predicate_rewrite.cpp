@@ -22,7 +22,7 @@ RC PredicateRewriteRule::rewrite(std::unique_ptr<LogicalOperator> &oper, bool &c
     return RC::SUCCESS;
   }
 
-  auto &child_oper = child_opers.front();
+  auto &child_oper = child_opers.front(); //指针列表的第一个
   if (child_oper->type() != LogicalOperatorType::PREDICATE) {
     return RC::SUCCESS;
   }

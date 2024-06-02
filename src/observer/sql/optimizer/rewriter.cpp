@@ -35,7 +35,7 @@ RC Rewriter::rewrite(std::unique_ptr<LogicalOperator> &oper, bool &change_made)
   for (std::unique_ptr<RewriteRule> &rule : rewrite_rules_) {
     bool sub_change_made = false;
 
-    rc = rule->rewrite(oper, sub_change_made);
+    rc = rule->rewrite(oper, sub_change_made);  //依次进行表达式、过滤以及过滤下推重写
     if (rc != RC::SUCCESS) {
       LOG_WARN("failed to rewrite logical operator. rc=%s", strrc(rc));
       return rc;
