@@ -141,9 +141,9 @@ RC OptimizeStage::optimize(unique_ptr<LogicalOperator> &oper,SQLStageEvent *sql_
   //3.回溯计算最优排序
 
   //4.改写逻辑计划
-  
 
-  //
+  // 均提前到logical operator进行预先实现
+
 
   return rc;
 }

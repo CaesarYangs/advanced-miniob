@@ -41,3 +41,5 @@ ANALYZE TABLE Publisher(id,name,nation);
 
 
 SELECT * FROM Book,Customer,Publisher WHERE Publisher.id < 100002 AND Customer.id < 300010 AND Book.id < 200050;
+
+SELECT * FROM Book,Publisher WHERE Book.publisher_id = Publisher.id AND Book.id < 200100 AND Publisher.id < 100010;

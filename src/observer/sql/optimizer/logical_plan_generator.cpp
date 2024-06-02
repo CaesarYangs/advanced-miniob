@@ -16,6 +16,7 @@ See the Mulan PSL v2 for more details. */
 
 #include <common/log/log.h>
 
+#include "sql/optimizer/optimization_join_logical_rewriter.h"
 #include "sql/operator/calc_logical_operator.h"
 #include "sql/operator/delete_logical_operator.h"
 #include "sql/operator/explain_logical_operator.h"
@@ -41,7 +42,7 @@ See the Mulan PSL v2 for more details. */
 
 using namespace std;
 
-RC LogicalPlanGenerator::create(Stmt *stmt, unique_ptr<LogicalOperator> &logical_operator,SQLStageEvent *sql_event)
+RC LogicalPlanGenerator::create(Stmt *stmt, unique_ptr<LogicalOperator> &logical_operator, SQLStageEvent *sql_event)
 {
   RC rc = RC::SUCCESS;
   switch (stmt->type()) {
@@ -54,7 +55,7 @@ RC LogicalPlanGenerator::create(Stmt *stmt, unique_ptr<LogicalOperator> &logical
     case StmtType::SELECT: {
       SelectStmt *select_stmt = static_cast<SelectStmt *>(stmt);
 
-      rc = create_plan(select_stmt, logical_operator,sql_event);
+      rc = create_plan(select_stmt, logical_operator, sql_event);
     } break;
 
     case StmtType::ANALYZE: {
@@ -86,7 +87,7 @@ RC LogicalPlanGenerator::create(Stmt *stmt, unique_ptr<LogicalOperator> &logical
     case StmtType::EXPLAIN: {
       ExplainStmt *explain_stmt = static_cast<ExplainStmt *>(stmt);
 
-      rc = create_plan(explain_stmt, logical_operator,sql_event);
+      rc = create_plan(explain_stmt, logical_operator, sql_event);
     } break;
     default: {
       rc = RC::UNIMPLENMENT;
@@ -101,57 +102,58 @@ RC LogicalPlanGenerator::create_plan(CalcStmt *calc_stmt, std::unique_ptr<Logica
   return RC::SUCCESS;
 }
 
-RC LogicalPlanGenerator::create_tables(SQLStageEvent *sql_event, std::vector<Table *> tables){
-   RC rc = RC::SUCCESS;
-  //根据session_event 找到session 再找到当前的数据库
-  const char* zhifang = "relstatistics";
+// 用于Analyze之后进行优化连接操作
+RC LogicalPlanGenerator::create_tables(SQLStageEvent *sql_event, std::vector<Table *> tables)
+{
+  RC rc = RC::SUCCESS;
+  // 根据session_event 找到session 再找到当前的数据库
+  const char   *zhifang       = "relstatistics";
   SessionEvent *session_event = sql_event->session_event();
-  Db * db =  session_event->session()->get_current_db();
-  Table * relstatistics = db->find_table(zhifang);
+  Db           *db            = session_event->session()->get_current_db();
+  Table        *relstatistics = db->find_table(zhifang);
 
-
-  RowTuple tuple_;
-  bool readonly_ = false;
+  RowTuple          tuple_;
+  bool              readonly_ = false;
   RecordFileScanner record_scanner_;
-  Record current_record_;
-  Trx *trx = session_event->session()->current_trx();
+  Record            current_record_;
+  Trx              *trx = session_event->session()->current_trx();
 
   rc = relstatistics->get_record_scanner(record_scanner_, trx, readonly_);
   if (rc == RC::SUCCESS) {
     tuple_.set_schema(relstatistics, relstatistics->table_meta().field_metas());
   }
 
-  bool filter_result = true;
-  bool flag = false;
-  std::vector<std::vector<Value>> name_record ;
+  bool                            filter_result = true;
+  bool                            flag          = false;  // if it is analyzed
+  std::vector<std::vector<Value>> name_record;
   while (record_scanner_.has_next()) {
     rc = record_scanner_.next(current_record_);
     if (rc != RC::SUCCESS) {
       return rc;
-    }else{
+    } else {
       flag = true;
     }
 
     tuple_.set_record(&current_record_);
 
-    int cell_num =tuple_.cell_num();
-    Value table_name;
-    Value record_num;
+    int                cell_num = tuple_.cell_num();
+    Value              table_name;
+    Value              record_num;
     std::vector<Value> a;
-    
-    rc = tuple_.cell_at(0,table_name);
+
+    rc = tuple_.cell_at(0, table_name);
     if (rc != RC::SUCCESS) {
       return rc;
     }
-    rc = tuple_.cell_at(4,record_num);
+    rc = tuple_.cell_at(4, record_num);
     if (rc != RC::SUCCESS) {
       return rc;
     }
-    
+
     a.push_back(table_name);
     a.push_back(record_num);
     name_record.push_back(a);
-   
+
     if (filter_result) {
       sql_debug("get a tuple: !!!!!!!!!!!!!!!%s", tuple_.to_string().c_str());
       break;
@@ -161,119 +163,95 @@ RC LogicalPlanGenerator::create_tables(SQLStageEvent *sql_event, std::vector<Tab
     }
   }
 
-  if(flag){
-    int k=-1,j=-1;
-    for(int i = 0 ; i<tables.size() ;i++){
+  // if the table is analyzed
+  if (flag) {
+    int k = -1, j = -1;
+    for (int i = 0; i < tables.size(); i++) {
       string p = tables[i]->name();
-      if(0 == strcmp("Book", tables[i]->name())){
+      if (0 == strcmp("Book", tables[i]->name())) {
         tables[i]->set_cost(90001);
         k = i;
       }
-      if(0 == strcmp("Customer",  tables[i]->name())){
+      if (0 == strcmp("Customer", tables[i]->name())) {
         tables[i]->set_cost(15000);
       }
-      if(0 == strcmp("Orders",  tables[i]->name())){
+      if (0 == strcmp("Orders", tables[i]->name())) {
         tables[i]->set_cost(100000);
       }
-      if(0 == strcmp("Publisher",  tables[i]->name())){
+      if (0 == strcmp("Publisher", tables[i]->name())) {
         tables[i]->set_cost(5000);
         j = i;
       }
 
       LOG_TRACE("TABLE????!!!!!!!!:%s", tables[i]->name());
     }
-   
-    if (k < tables.size() && j < tables.size() && k >=0 && j>=0){
-        LOG_TRACE("TABLE????!!!!!!!!????? %d, %d",k ,j);
-        Table* temp = tables[k];
-        tables[k] = tables[j];
-        tables[j] = temp;
+
+    if (k < tables.size() && j < tables.size() && k >= 0 && j >= 0) {
+      LOG_TRACE("TABLE????!!!!!!!!????? %d, %d",k ,j);
+      Table *temp = tables[k];
+      tables[k]   = tables[j];
+      tables[j]   = temp;
     }
-    
   }
   return rc;
- 
 }
-//生成select类型逻辑
-RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<LogicalOperator> &logical_operator,SQLStageEvent *sql_event)
+// 生成select类型逻辑
+RC LogicalPlanGenerator::create_plan(
+    SelectStmt *select_stmt, unique_ptr<LogicalOperator> &logical_operator, SQLStageEvent *sql_event)
 {
-  RC rc= RC::SUCCESS;
+  RC                          rc = RC::SUCCESS;
   unique_ptr<LogicalOperator> table_oper(nullptr);
-  //smt获取表 + 列
+  // smt获取表 + 列
   const std::vector<Table *> &tables     = select_stmt->tables();
   const std::vector<Field>   &all_fields = select_stmt->query_fields();
 
-  
   std::vector<Table *> tablec;
   for (Table *table : tables) {
-    Table * s= table;
+    Table *s = table;
     tablec.push_back(s);
   }
   // rc = create_tables(sql_event, tablec);
 
-  const char* zhifang = "relstatistics";
+  const char   *zhifang       = "relstatistics";
   SessionEvent *session_event = sql_event->session_event();
-  Db * db =  session_event->session()->get_current_db();
-  Table * relstatistics = db->find_table(zhifang);
-  bool flag = false;
-  if(relstatistics !=nullptr){
-    RowTuple tuple_;
-    bool readonly_ = false;
+  Db           *db            = session_event->session()->get_current_db();
+  Table        *relstatistics = db->find_table(zhifang);
+  bool          flag          = false;
+  if (relstatistics != nullptr) {
+    RowTuple          tuple_;
+    bool              readonly_ = false;
     RecordFileScanner record_scanner_;
-    Record current_record_;
-    Trx *trx = session_event->session()->current_trx();
+    Record            current_record_;
+    Trx              *trx = session_event->session()->current_trx();
 
     rc = relstatistics->get_record_scanner(record_scanner_, trx, readonly_);
     if (rc == RC::SUCCESS) {
       tuple_.set_schema(relstatistics, relstatistics->table_meta().field_metas());
     }
 
-    bool filter_result = true;
-    std::vector<std::vector<Value>> name_record ;
+    bool                            filter_result = true;
+    std::vector<std::vector<Value>> name_record;
     while (record_scanner_.has_next()) {
       rc = record_scanner_.next(current_record_);
       if (rc != RC::SUCCESS) {
         return rc;
-      }else{
+      } else {
         flag = true;
       }
     }
   }
-  
 
-  if(flag){
-    int k=-1,j=-1;
-    for(int i = 0 ; i<tablec.size() ;i++){
-      string p = tablec[i]->name();
-      if(0 == strcmp("Book", tablec[i]->name())){
-        tablec[i]->set_cost(90001);
-        k = i;
-      }
-      if(0 == strcmp("Customer",  tablec[i]->name())){
-        tablec[i]->set_cost(15000);
-      }
-      if(0 == strcmp("Orders",  tablec[i]->name())){
-        tablec[i]->set_cost(100000);
-      }
-      if(0 == strcmp("Publisher",  tablec[i]->name())){
-        tablec[i]->set_cost(5000);
-        j = i;
-      }
-      LOG_TRACE("TABLE????!!!!!!!!:%s", tablec[i]->name());
+  if (flag) {
+    for (auto current_table : tablec) {
+      calculate_cost(current_table);
     }
-   
-    if (k < tablec.size() && j < tablec.size() && k >=0 && j>=0){
-        LOG_TRACE("TABLE????!!!!!!!!????? %d, %d",k ,j);
-        Table* temp = tablec[k];
-        tablec[k] = tablec[j];
-        tablec[j] = temp;
+
+    if (set_table_optimization(tablec) != RC::SUCCESS) {
+      LOG_DEBUG("Error when set_table_optimization");
     }
-    
   }
 
-
-
-  for (Table *table : tablec) { //将所有表遍历连接
+  for (Table *table : tablec) {  // 将所有表遍历连接
     LOG_TRACE("TABLE????!!!!!!!!:%s", table->name());
     std::vector<Field> fields;
     for (const Field &field : all_fields) {
@@ -298,7 +276,7 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
   // 谓词与投影操作
   unique_ptr<LogicalOperator> predicate_oper;
 
-  rc = create_plan(select_stmt->filter_stmt(), predicate_oper); //谓词过滤
+  rc = create_plan(select_stmt->filter_stmt(), predicate_oper);  // 谓词过滤
   if (rc != RC::SUCCESS) {
     LOG_WARN("failed to create predicate logical plan. rc=%s", strrc(rc));
     return rc;
@@ -311,8 +289,8 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
     return rc;
   }
 
-  unique_ptr<LogicalOperator> project_oper(new ProjectLogicalOperator(all_fields)); //投影逻辑
-  if (predicate_oper) { 
+  unique_ptr<LogicalOperator> project_oper(new ProjectLogicalOperator(all_fields));  // 投影逻辑
+  if (predicate_oper) {
     // 投影操作将作用于谓词过滤后的结果
     if (table_oper) {
       predicate_oper->add_child(std::move(table_oper));
@@ -354,7 +332,7 @@ RC LogicalPlanGenerator::create_plan(FilterStmt *filter_stmt, unique_ptr<Logical
 {
   std::vector<unique_ptr<Expression>> cmp_exprs;
   const std::vector<FilterUnit *>    &filter_units = filter_stmt->filter_units();
-  for (const FilterUnit *filter_unit : filter_units) { //将每一个谓词过滤操作构建成比较表达式
+  for (const FilterUnit *filter_unit : filter_units) {  // 将每一个谓词过滤操作构建成比较表达式
     const FilterObj &filter_obj_left  = filter_unit->left();
     const FilterObj &filter_obj_right = filter_unit->right();
 
@@ -516,13 +494,14 @@ RC LogicalPlanGenerator::create_plan(DeleteStmt *delete_stmt, unique_ptr<Logical
   return rc;
 }
 
-RC LogicalPlanGenerator::create_plan(ExplainStmt *explain_stmt, unique_ptr<LogicalOperator> &logical_operator,SQLStageEvent *sql_event)
+RC LogicalPlanGenerator::create_plan(
+    ExplainStmt *explain_stmt, unique_ptr<LogicalOperator> &logical_operator, SQLStageEvent *sql_event)
 {
   unique_ptr<LogicalOperator> child_oper;
 
   Stmt *child_stmt = explain_stmt->child();
 
-  RC rc = create(child_stmt, child_oper,sql_event);
+  RC rc = create(child_stmt, child_oper, sql_event);
   if (rc != RC::SUCCESS) {
     LOG_WARN("failed to create explain's child operator. rc=%s", strrc(rc));
     return rc;

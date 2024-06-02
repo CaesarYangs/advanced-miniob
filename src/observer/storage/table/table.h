@@ -138,6 +138,10 @@ public:
     analyzed_value_ = analyzed_value;
   }
 
+  std::vector<std::vector<Value>> get_analyzed_value(){
+    return analyzed_value_;
+  }
+
 private:
   std::string          base_dir_;
   TableMeta            table_meta_;
