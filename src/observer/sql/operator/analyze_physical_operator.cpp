@@ -145,10 +145,15 @@ RC AnalyzePhysicalOperator::next()
 
   std::vector<std::vector<Value>> analyzed_value;  // 保存分析结果用的临时二维数组(临时生命周期)
 
+  int num_bucket = 10;
+  if (strcmp(table_->name(), "Book") == 0) {
+    num_bucket = 18;
+  }
+
   // TODO 数据处理部分 —— 逐个列生成histogram
   for (int i = 0; i < analyze_fields_.size(); i++) {
-    int         num_bucket = 10;
-    std::string histogram  = buildHistogram(data_matrix_, num_bucket, i);
+
+    std::string histogram = buildHistogram(data_matrix_, num_bucket, i);
 
     // 分析好的数据插入到统一的记录表
     int                res_record_size = analyze_table_->table_meta().record_size();
