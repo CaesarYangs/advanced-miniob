@@ -31,6 +31,11 @@ public:
 
   Table *table() const { return table_; }
   bool   readonly() const { return readonly_; }
+  void setCost(double cost){cost_ = cost;}
+  int  getcost(){return cost_;}
+  void setRecordNum(int num){record_num_ = num;}
+  int  getRecordNum(){return record_num_;}
+
 
   void                                      set_predicates(std::vector<std::unique_ptr<Expression>> &&exprs);
   std::vector<std::unique_ptr<Expression>> &predicates() { return predicates_; }
@@ -45,4 +50,7 @@ private:
   // 不包含复杂的表达式运算，比如加减乘除、或者conjunction expression
   // 如果有多个表达式，他们的关系都是 AND
   std::vector<std::unique_ptr<Expression>> predicates_;
+
+  double cost_;
+  int record_num_;
 };

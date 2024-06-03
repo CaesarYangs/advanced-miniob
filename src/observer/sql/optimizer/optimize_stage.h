@@ -83,6 +83,9 @@ private:
 
   RC get_tablegets(std::unique_ptr<LogicalOperator> &oper,std::vector<TableGetLogicalOperator*> &tablegets);
 
+  RC calculate_cost(vector<TableGetLogicalOperator *> &tablegets, std::vector<std::vector<Value>> reltatistics_data);
+
+  RC sort_operator(vector<TableGetLogicalOperator *> &tablegets);
 private:
   LogicalPlanGenerator  logical_plan_generator_;   ///< 根据SQL生成逻辑计划
   PhysicalPlanGenerator physical_plan_generator_;  ///< 根据逻辑计划生成物理计划
