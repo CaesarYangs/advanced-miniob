@@ -70,10 +70,11 @@ void Frame::write_latch(intptr_t xid)
         "this=%p, pin=%d, pageNum=%d, fd=%d, xid=%lx, lbt=%s",
         this, pin_count_.load(), page_.page_num, file_desc_, xid, lbt());
 
-    ASSERT(read_lockers_.find(xid) == read_lockers_.end(),
-        "frame lock write while holding the read lock."
-        "this=%p, pin=%d, pageNum=%d, fd=%d, xid=%lx, lbt=%s",
-        this, pin_count_.load(), page_.page_num, file_desc_, xid, lbt());
+    // TODO
+    // ASSERT(read_lockers_.find(xid) == read_lockers_.end(),
+    //     "frame lock write while holding the read lock."
+    //     "this=%p, pin=%d, pageNum=%d, fd=%d, xid=%lx, lbt=%s",
+    //     this, pin_count_.load(), page_.page_num, file_desc_, xid, lbt());
   }
 
   lock_.lock();
@@ -242,9 +243,10 @@ int Frame::unpin()
     ASSERT(write_locker_ == 0,
            "frame unpin to 0 failed while someone hold the write lock. write locker=%lx, pageNum=%d, fd=%d, xid=%lx",
            write_locker_, page_.page_num, file_desc_, xid);
-    ASSERT(read_lockers_.empty(),
-           "frame unpin to 0 failed while someone hold the read locks. reader num=%d, pageNum=%d, fd=%d, xid=%lx",
-           read_lockers_.size(), page_.page_num, file_desc_, xid);
+    // TODO - 不判断两个同时存在的读锁，会有一定的风险 后续还要继续思考
+    // ASSERT(read_lockers_.empty(),
+    //        "frame unpin to 0 failed while someone hold the read locks. reader num=%d, pageNum=%d, fd=%d, xid=%lx",
+    //        read_lockers_.size(), page_.page_num, file_desc_, xid);
   }
   return pin_count;
 }

@@ -48,6 +48,8 @@ enum class PhysicalOperatorType
   DELETE,
   INSERT,
   UPDATE,
+  ORDER_BY, // 排序
+  ANALYZE
 };
 
 /**

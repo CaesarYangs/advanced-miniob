@@ -72,5 +72,5 @@ void ProjectPhysicalOperator::add_projection(const Field &field)
   } else {
     spec = new TupleCellSpec(field.table_name(), field.meta()->name(), field.alias().c_str(), field.aggre_type());
   }
-  tuple_.add_cell_spec(spec);
+  tuple_.add_cell_spec(spec); //加入cell tuple
 }

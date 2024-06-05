@@ -81,8 +81,8 @@ RC ExecuteStage::handle_request_with_physical_operator(SQLStageEvent *sql_event)
             }
           } break;
           default: {  // aggre name
-            const std::string aggre_name = aggreType2str(aggre_type) + "(" + field.alias() + ")";
-            schema.append_cell(aggre_name.c_str());
+            const std::string aggre_name = aggreType2str(aggre_type) + "(" + field.alias() + ")"; //聚集名 + 聚集内容 e.g.COUNT(a)
+            schema.append_cell(aggre_name.c_str()); //将聚集名加入schema中
           }
         }
       }

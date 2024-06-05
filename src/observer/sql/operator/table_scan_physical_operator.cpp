@@ -30,24 +30,26 @@ RC TableScanPhysicalOperator::open(Trx *trx)
 
 RC TableScanPhysicalOperator::next()
 {
+  LOG_DEBUG("IM HERE AT TableScanPhysicalOperator");
   if (!record_scanner_.has_next()) {
     return RC::RECORD_EOF;
   }
-
+  LOG_DEBUG("IM HERE AT TableScanPhysicalOperator --1");
   RC   rc            = RC::SUCCESS;
   bool filter_result = false;
   while (record_scanner_.has_next()) {
+    LOG_DEBUG("IM HERE AT TableScanPhysicalOperator --2");
     rc = record_scanner_.next(current_record_);
     if (rc != RC::SUCCESS) {
       return rc;
     }
-
+    LOG_DEBUG("IM HERE AT TableScanPhysicalOperator --3");
     tuple_.set_record(&current_record_);
     rc = filter(tuple_, filter_result);
     if (rc != RC::SUCCESS) {
       return rc;
     }
-
+    LOG_DEBUG("IM HERE AT TableScanPhysicalOperator --4");
     if (filter_result) {
       sql_debug("get a tuple: %s", tuple_.to_string().c_str());
       break;
@@ -55,6 +57,7 @@ RC TableScanPhysicalOperator::next()
       sql_debug("a tuple is filtered: %s", tuple_.to_string().c_str());
       rc = RC::RECORD_EOF;
     }
+    LOG_DEBUG("IM HERE AT TableScanPhysicalOperator --5");
   }
   return rc;
 }

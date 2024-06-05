@@ -20,10 +20,17 @@ See the Mulan PSL v2 for more details. */
 #include "sql/optimizer/logical_plan_generator.h"
 #include "sql/optimizer/physical_plan_generator.h"
 #include "sql/optimizer/rewriter.h"
+#include "storage/db/db.h"
+#include "session/session.h"
+#include "sql/operator/table_get_logical_operator.h"
+#include "sql/operator/physical_operator.h"
+#include "storage/record/record_manager.h"
 
 class SQLStageEvent;
 class LogicalOperator;
 class Stmt;
+class SessionEvent;
+class Session;
 
 /**
  * @brief 将解析后的Statement转换成执行计划，并进行优化
@@ -57,11 +64,12 @@ private:
   RC rewrite(std::unique_ptr<LogicalOperator> &logical_operator);
 
   /**
-   * @brief 优化逻辑计划
+   * @brief 优化逻辑计划 
    * @details 当前什么都没做。可以增加每个逻辑计划的代价模型，然后根据代价模型进行优化。
    * @param logical_operator 需要优化的逻辑计划
    */
-  RC optimize(std::unique_ptr<LogicalOperator> &logical_operator);
+  //添加代价模型
+  RC optimize(std::unique_ptr<LogicalOperator> &logical_operator, SQLStageEvent *sql_event);
 
   /**
    * @brief 根据逻辑计划生成物理计划
@@ -73,6 +81,11 @@ private:
   RC generate_physical_plan(
       std::unique_ptr<LogicalOperator> &logical_operator, std::unique_ptr<PhysicalOperator> &physical_operator);
 
+  RC get_tablegets(std::unique_ptr<LogicalOperator> &oper,std::vector<TableGetLogicalOperator*> &tablegets);
+
+  RC calculate_cost(vector<TableGetLogicalOperator *> &tablegets, std::vector<std::vector<Value>> reltatistics_data);
+
+  RC sort_operator(vector<TableGetLogicalOperator *> &tablegets);
 private:
   LogicalPlanGenerator  logical_plan_generator_;   ///< 根据SQL生成逻辑计划
   PhysicalPlanGenerator physical_plan_generator_;  ///< 根据逻辑计划生成物理计划

@@ -34,5 +34,5 @@ private:
   std::string table_name_;
   std::string field_name_;
   std::string alias_;
-  AggreType   aggre_tyep_;
+  AggreType   aggre_tyep_;  //<存储聚集类型
 };

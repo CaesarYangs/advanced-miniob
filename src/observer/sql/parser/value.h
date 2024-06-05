@@ -16,6 +16,7 @@ See the Mulan PSL v2 for more details. */
 
 #include <string>
 #include "sql/parser/date.h"
+#include "sql/parser/comp_op.h"
 
 /**
  * @brief 属性的类型
@@ -50,6 +51,12 @@ public:
   explicit Value(Date val);
   explicit Value(bool val);
   explicit Value(const char *s, int len = 0);
+
+  bool operator<(const Value& other) const {
+    // 根据 Value 的实际数据类型进行比较
+    // 例如，如果 Value 包含一个 int 成员：
+    return this->get_int() < other.get_int(); 
+  }
   
 
   Value(const Value &other)            = default;
@@ -68,6 +75,8 @@ public:
   std::string to_string() const;
 
   int compare(const Value &other) const;
+  bool compare(const CompOp &comp_op, const Value &other) const;
+  bool type_cast(const AttrType target);
 
   const char *data() const;
   int         length() const { return length_; }

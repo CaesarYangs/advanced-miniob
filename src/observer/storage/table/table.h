@@ -109,6 +109,9 @@ public:
 
   const TableMeta &table_meta() const;
 
+  RC set_cost(int cost){ cost_ = cost;};
+  const int get_cost(){return cost_;};
+
   RC sync();
 
 private:
@@ -119,9 +122,25 @@ private:
   RC init_record_handler(const char *base_dir);
 
 public:
-  Index *find_index(const char *index_name) const;
-  Index *find_index_by_field(const char *field_name) const;
+  Index     *find_index(const char *index_name) const;
+  Index     *find_index_by_field(const char *field_name) const;
   IndexMeta *find_index_by_field(std::vector<std::string> field) const;
+
+  // 设置表对应的全部数据内容
+  RC set_data_matrix(std::vector<std::vector<Value>> data_matrix){
+    data_matrix_.clear();
+    data_matrix_ = data_matrix;
+  }
+
+  // 设置表对应的分析矩阵结果
+  RC set_analyzed_value(std::vector<std::vector<Value>> analyzed_value){
+    analyzed_value_.clear();
+    analyzed_value_ = analyzed_value;
+  }
+
+  std::vector<std::vector<Value>> get_analyzed_value(){
+    return analyzed_value_;
+  }
 
 private:
   std::string          base_dir_;
@@ -129,4 +148,7 @@ private:
   DiskBufferPool      *data_buffer_pool_ = nullptr;  /// 数据文件关联的buffer pool
   RecordFileHandler   *record_handler_   = nullptr;  /// 记录操作
   std::vector<Index *> indexes_;
+  std::vector<std::vector<Value>> data_matrix_;  // ANALYZE得到的表全部数据，对象存储，若内存不够可改为指针
+  std::vector<std::vector<Value>> analyzed_value_;  // ANALYZE得到的直方图
+  int cost_;
 };
