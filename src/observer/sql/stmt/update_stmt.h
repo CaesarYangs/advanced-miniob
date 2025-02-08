@@ -37,16 +37,16 @@ public:
   static RC create(Db *db, const UpdateSqlNode &update_sql, Stmt *&stmt);
 
 public:
-  Table      *table() const { return table_; }
-  Field      *query_field() const { return query_field_; }
-  FilterStmt *filter_stmt() const { return filter_stmt_; }
-  const Value      *values() const { return values_; }
-  int         value_amount() const { return value_amount_; }
+  Table       *table() const { return table_; }
+  Field       *query_field() const { return query_field_; }
+  FilterStmt  *filter_stmt() const { return filter_stmt_; }
+  const Value *values() const { return values_; }
+  int          value_amount() const { return value_amount_; }
 
 private:
-  Field      *query_field_  = nullptr;
-  Table      *table_        = nullptr;
-  const Value      *values_       = nullptr;
-  FilterStmt *filter_stmt_  = nullptr;
-  int         value_amount_ = 1;
+  Field       *query_field_  = nullptr;
+  Table       *table_        = nullptr;
+  const Value *values_       = nullptr;
+  FilterStmt  *filter_stmt_  = nullptr;
+  int          value_amount_ = 1;
 };

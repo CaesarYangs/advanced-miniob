@@ -45,7 +45,7 @@ Value::Value(float val) { set_float(val); }
 
 Value::Value(bool val) { set_boolean(val); }
 
-Value::Value(const char *s, int len /*= 0*/) { set_string(s, len);}
+Value::Value(const char *s, int len /*= 0*/) { set_string(s, len); }
 
 Value::Value(Date val) { set_date(val); }
 
@@ -59,10 +59,10 @@ void Value::set_data(char *data, int length)
       num_value_.int_value_ = *(int *)data;
       length_               = length;
     } break;
-    case DATES:{
+    case DATES: {
       num_value_.date_value_ = *(Date *)data;
-      length_               = length;
-    }break;
+      length_                = length;
+    } break;
     case FLOATS: {
       num_value_.float_value_ = *(float *)data;
       length_                 = length;
@@ -90,10 +90,11 @@ void Value::set_float(float val)
   length_                 = sizeof(val);
 }
 
-void Value::set_date(Date date) {
-  attr_type_ = DATES;
+void Value::set_date(Date date)
+{
+  attr_type_             = DATES;
   num_value_.date_value_ = date;
-  length_ = sizeof(date);
+  length_                = sizeof(date);
 }
 void Value::set_boolean(bool val)
 {
@@ -122,9 +123,9 @@ void Value::set_value(const Value &value)
     case FLOATS: {
       set_float(value.get_float());
     } break;
-     case DATES: {
-    set_date(value.get_date());
-  } break;
+    case DATES: {
+      set_date(value.get_date());
+    } break;
     case CHARS: {
       set_string(value.get_string().c_str());
     } break;
@@ -157,8 +158,8 @@ std::string Value::to_string() const
       os << num_value_.int_value_;
     } break;
     case DATES: {
-    os << Date::to_string(num_value_.date_value_);
-   } break;
+      os << Date::to_string(num_value_.date_value_);
+    } break;
     case FLOATS: {
       os << common::double_to_str(num_value_.float_value_);
     } break;
@@ -186,8 +187,8 @@ int Value::compare(const Value &other) const
         return common::compare_float((void *)&this->num_value_.float_value_, (void *)&other.num_value_.float_value_);
       } break;
       case DATES: {
-      return Date::compare_date(&num_value_.date_value_, &other.num_value_.date_value_);
-    } break;
+        return Date::compare_date(&num_value_.date_value_, &other.num_value_.date_value_);
+      } break;
       case CHARS: {
         return common::compare_string((void *)this->str_value_.c_str(),
             this->str_value_.length(),
@@ -207,7 +208,7 @@ int Value::compare(const Value &other) const
   } else if (this->attr_type_ == FLOATS && other.attr_type_ == INTS) {
     float other_data = other.num_value_.int_value_;
     return common::compare_float((void *)&this->num_value_.float_value_, (void *)&other_data);
- } else if (this->attr_type_ == CHARS && other.attr_type_ == DATES) {
+  } else if (this->attr_type_ == CHARS && other.attr_type_ == DATES) {
     Date a = get_date();
     return Date::compare_date(&a, &other.num_value_.date_value_);
   } else if (this->attr_type_ == DATES && other.attr_type_ == CHARS) {
@@ -239,19 +240,15 @@ bool Value::compare(const CompOp &comp_op, const Value &other) const
       } break;
       case CHARS: {
         if (comp_op == LIKE || comp_op == NOT_LIKE) {
-          cmp_result = common::string_match(
-              (void *)this->str_value_.c_str(),
+          cmp_result = common::string_match((void *)this->str_value_.c_str(),
               this->str_value_.length(),
               (void *)other.str_value_.c_str(),
-              other.str_value_.length()
-          );
+              other.str_value_.length());
         } else {
-          cmp_result = common::compare_string(
-              (void *)this->str_value_.c_str(),
+          cmp_result = common::compare_string((void *)this->str_value_.c_str(),
               this->str_value_.length(),
               (void *)other.str_value_.c_str(),
-              other.str_value_.length()
-          );
+              other.str_value_.length());
         }
       } break;
       case BOOLEANS: {
@@ -394,14 +391,14 @@ bool Value::get_boolean() const
   return false;
 }
 
-
-bool Value::convert(AttrType from, AttrType to, Value &value) {
+bool Value::convert(AttrType from, AttrType to, Value &value)
+{
   if (from == to) {
     return true;
   }
   if (from == CHARS && to == DATES) {
     Date date = value.get_date();
-    if (date.value == -1){
+    if (date.value == -1) {
       return false;
     }
     value.set_date(date);
@@ -418,11 +415,12 @@ bool Value::convert(AttrType from, AttrType to, Value &value) {
   return false;
 }
 
-Date Value::get_date() const {
+Date Value::get_date() const
+{
   switch (attr_type()) {
-  case DATES: return num_value_.date_value_;
-  case CHARS: return Date(str_value_);
-  default: return Date(-1);
+    case DATES: return num_value_.date_value_;
+    case CHARS: return Date(str_value_);
+    default: return Date(-1);
   }
 }
 

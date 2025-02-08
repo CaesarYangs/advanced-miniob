@@ -60,13 +60,13 @@ RC UpdateStmt::create(Db *db, const UpdateSqlNode &update, Stmt *&stmt)
   const char      *field_name = update.attribute_name.c_str();
   for (int i = table_meta.sys_field_num(); i < field_num; i++) {
     // field_metas.push_back(Field(table, table_meta.field(i)));
-    if(strcmp(table_meta.field(i)->name(),field_name)==0){
-      query_field = new Field(table,table_meta.field(i));
+    if (strcmp(table_meta.field(i)->name(), field_name) == 0) {
+      query_field = new Field(table, table_meta.field(i));
       break;
     }
   }
   LOG_DEBUG("get field name: %s",field_name);
-  if(query_field == nullptr){
+  if (query_field == nullptr) {
     LOG_ERROR("failed to get existing field to change.");
     return RC::NOTFOUND;
   }
@@ -85,8 +85,8 @@ RC UpdateStmt::create(Db *db, const UpdateSqlNode &update, Stmt *&stmt)
   }
 
   // TODO everything alright
-  UpdateStmt *update_stmt = new UpdateStmt(table, values, filter_stmt);
+  UpdateStmt *update_stmt   = new UpdateStmt(table, values, filter_stmt);
   update_stmt->query_field_ = query_field;
-  stmt = update_stmt;
+  stmt                      = update_stmt;
   return RC::SUCCESS;
 }

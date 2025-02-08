@@ -294,7 +294,7 @@ RC RecordPageHandler::update_record(const RID *rid, Field *field, const Value *v
   size_t copy_len = (input_len < max_field_len) ? input_len : max_field_len - 1;
   memcpy(rec->data() + field->meta()->offset(),
       value->data(),
-      copy_len);  // 将数据复制到记录中，确保不会超过字段的最大长度
+      copy_len);                                           // 将数据复制到记录中，确保不会超过字段的最大长度
   rec->data()[field->meta()->offset() + copy_len] = '\0';  // 在复制后的字符串末尾添加空字符，确保字符串正确终止
 
   // 更新memory

@@ -466,8 +466,7 @@ public:
    */
   int lookup(const KeyComparator &comparator, const char *key, bool *found = nullptr) const;
 
-  int lookup(
-      const KeyComparator &comparator, const char *key, bool *found, bool is_unique) const;
+  int lookup(const KeyComparator &comparator, const char *key, bool *found, bool is_unique) const;
 
   void insert(int index, const char *key, const char *value);
   void remove(int index);

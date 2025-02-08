@@ -21,7 +21,7 @@ See the Mulan PSL v2 for more details. */
 RC SqlTaskHandler::handle_event(Communicator *communicator)
 {
   SessionEvent *event = nullptr;
-  RC rc = communicator->read_event(event);
+  RC            rc    = communicator->read_event(event);
   if (OB_FAIL(rc)) {
     return rc;
   }
@@ -51,16 +51,16 @@ RC SqlTaskHandler::handle_event(Communicator *communicator)
   return RC::SUCCESS;
 }
 /**
- * SqlTaskHandler 
- * 
+ * SqlTaskHandler
+ *
  * 1.query_cache_stage_:到cache中查询是否存在内容（当前不涉及）
  * 2.parse_stage_:解析sql语句为ParsedSqlNode指针，其中包含操作类别及sql中的所有数据
  * 3.resolve_stage_:将解析的sql语句和db真实情况结合，设定处理的最终Stmt
  * 4.optimize_stage_:Stmt优化部分（当前不涉及）
  * 5.execute_stage_:真正的执行阶段，将按照Stmt中设定好的内容进行执行
- * 
- * @param  {SQLStageEvent*} sql_event : 
- * @return {RC}                       : 
+ *
+ * @param  {SQLStageEvent*} sql_event :
+ * @return {RC}                       :
  */
 RC SqlTaskHandler::handle_sql(SQLStageEvent *sql_event)
 {

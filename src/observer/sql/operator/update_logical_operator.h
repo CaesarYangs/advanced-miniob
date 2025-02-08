@@ -17,13 +17,13 @@ public:
 
   LogicalOperatorType type() const override { return LogicalOperatorType::UPDATE; }
 
-  Table *table() const { return table_; }
+  Table       *table() const { return table_; }
   const Value *values() const { return values_; }
   // Value *values() { return values_; }
   Field *field() const { return field_; }
 
 private:
-  Table *table_ = nullptr;
+  Table       *table_ = nullptr;
   const Value *values_;  // 为什么他们都不用地址传递，决定了，你这就用地址传递
-  Field *field_ = nullptr;
+  Field       *field_ = nullptr;
 };

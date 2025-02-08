@@ -120,13 +120,12 @@ Table *Db::find_table(int32_t table_id) const
   return nullptr;
 }
 
-
 /**
  * Drop table core operator
  * Implemented drop_table func: use for delete table meta data and storaged data, table name from unordered map
  * 24.3.19
- * @param  {char*} table_name : 
- * @return {RC}               : 
+ * @param  {char*} table_name :
+ * @return {RC}               :
  */
 RC Db::drop_table(const char *table_name)
 {
@@ -139,8 +138,8 @@ RC Db::drop_table(const char *table_name)
   // drop table meta_file & data_file
   std::string table_file = table_meta_file(path_.c_str(), table_name);  // get meta data
   Table      *table      = opened_tables_[table_name];                  // get table_data
-  
-  rc = table->drop(table_file.c_str(), table_name, path_.c_str());      // main operation section for dropping table
+
+  rc = table->drop(table_file.c_str(), table_name, path_.c_str());  // main operation section for dropping table
   if (rc != RC::SUCCESS) {
     delete table;  // recycle pointer addr
     return rc;

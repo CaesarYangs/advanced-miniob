@@ -44,7 +44,10 @@ class Value
 public:
   Value() = default;
 
-  Value(AttrType attr_type, char *data, int length = 4) : attr_type_(attr_type) { this->set_data(data, length); } //初始化数据和长度
+  Value(AttrType attr_type, char *data, int length = 4) : attr_type_(attr_type)
+  {
+    this->set_data(data, length);
+  }  // 初始化数据和长度
 
   explicit Value(int val);
   explicit Value(float val);
@@ -52,12 +55,12 @@ public:
   explicit Value(bool val);
   explicit Value(const char *s, int len = 0);
 
-  bool operator<(const Value& other) const {
+  bool operator<(const Value &other) const
+  {
     // 根据 Value 的实际数据类型进行比较
     // 例如，如果 Value 包含一个 int 成员：
-    return this->get_int() < other.get_int(); 
+    return this->get_int() < other.get_int();
   }
-  
 
   Value(const Value &other)            = default;
   Value &operator=(const Value &other) = default;
@@ -74,7 +77,7 @@ public:
 
   std::string to_string() const;
 
-  int compare(const Value &other) const;
+  int  compare(const Value &other) const;
   bool compare(const CompOp &comp_op, const Value &other) const;
   bool type_cast(const AttrType target);
 
@@ -83,7 +86,7 @@ public:
 
   AttrType attr_type() const { return attr_type_; }
 
-  public:
+public:
   /**
    * 语法分析层面是否可以将from转换为to
    */
@@ -95,7 +98,7 @@ public:
    * 如果当前的类型与期望获取的类型不符，就会执行转换操作
    */
   int         get_int() const;
-  Date         get_date() const;
+  Date        get_date() const;
   float       get_float() const;
   std::string get_string() const;
   bool        get_boolean() const;
@@ -107,7 +110,7 @@ private:
   union
   {
     int   int_value_;
-    Date   date_value_;
+    Date  date_value_;
     float float_value_;
     bool  bool_value_;
   } num_value_;
